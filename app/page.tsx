@@ -413,19 +413,6 @@ export default function Home() {
       'image/svg+xml',
     );
   }
-  function exportRoute() {
-    download(
-      '手順,DMC,動作,出す穴X,出す穴Y,入れる穴X,入れる穴Y\n' +
-        sequence
-          .map(
-            (s, i) =>
-              `${i + 1},${s.color},${labels[s.kind]},${s.from[0]},${s.from[1]},${s.to[0]},${s.to[1]}`,
-          )
-          .join('\n'),
-      'ito-route.csv',
-      'text/csv;charset=utf-8',
-    );
-  }
   function ink(hex: string) {
     const n = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     return n[0] * 0.299 + n[1] * 0.587 + n[2] * 0.114 > 150
@@ -626,9 +613,6 @@ export default function Home() {
             </button>
             <button className="text-button" onClick={exportSvg}>
               図案SVGを保存
-            </button>
-            <button className="text-button" onClick={exportRoute}>
-              運針表をCSVで保存
             </button>
           </section>
           <div className="divider" />
