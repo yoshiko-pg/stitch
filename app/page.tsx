@@ -67,6 +67,23 @@ export default function Home() {
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
   const board = useRef<SVGSVGElement>(null);
+  const shell = useRef<HTMLDivElement>(null);
+  const footer = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const element = footer.current;
+    const root = shell.current;
+    if (!element || !root) return;
+    const measure = () =>
+      root.style.setProperty(
+        '--footer-height',
+        `${Math.ceil(element.getBoundingClientRect().height)}px`,
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const [draftCells, setDraftCells] = useState<(string | null)[] | null>(null);
   const stroke = useRef<{
     pointerId: number;
@@ -467,7 +484,7 @@ export default function Home() {
     return () => lifecycle.abort();
   }, [pattern, step, current, sequence.length]);
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={shell}>
       <main className="workspace">
         <aside className="settings" aria-label="図案の設定">
           <div className="panel-heading">
@@ -1107,9 +1124,14 @@ export default function Home() {
           )}
         </section>
       </main>
-      <footer>
+      <footer ref={footer}>
         <span>{saved ? 'この端末に自動保存' : '端末内で画像を処理'}</span>
-        <output className="status">
+        <output
+          className="status"
+          title={
+            message || 'まずはサンプルで、針の道すじを試してみてください。'
+          }
+        >
           {message || 'まずはサンプルで、針の道すじを試してみてください。'}
         </output>
         <button
