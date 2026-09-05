@@ -123,7 +123,6 @@ export default function Home() {
       `DMC ${mergeSource.id} の ${mergeCount}目を DMC ${mergeTarget.id} にまとめました。「一つ戻す」で取り消せます。運針は最初からになります。`,
     );
   }
-  const stitched = pattern.cells.filter(Boolean).length;
   useEffect(() => {
     try {
       const raw =
@@ -779,23 +778,66 @@ export default function Home() {
               </button>
             )}
           </div>
-          <div className="project-heading">
-            <div>
-              <h2>{pattern.name}</h2>
-              <span>
-                {pattern.width} × {pattern.height}目 <b>·</b>{' '}
-                {stitched.toLocaleString()} stitches <b>·</b> {palette.length}{' '}
-                colors
-              </span>
-            </div>
-            <span className="sample-tag">
-              {sourceName ? 'MY PATTERN' : 'STITCH PATTERN'}
-            </span>
-          </div>
           {view === 'guide' ? (
             <RouteOverview pattern={pattern} />
           ) : (
             <>
+              <div className="canvas-actions">
+                <div className="edit-tools">
+                  <button
+                    aria-label="選択を解除"
+                    className={paint === undefined ? 'active' : ''}
+                    onClick={() => setPaint(undefined)}
+                  >
+                    <Grid2X2 size={17} />
+                  </button>
+                  <button
+                    aria-label="消しゴム"
+                    className={paint === null ? 'active' : ''}
+                    onClick={() => {
+                      setPaint(null);
+                      setView('pattern');
+                    }}
+                  >
+                    <Eraser size={17} />
+                  </button>
+                  <button
+                    aria-label="一つ戻す"
+                    disabled={!history.length}
+                    onClick={() => {
+                      setPattern(history[history.length - 1]);
+                      setHistory((h) => h.slice(0, -1));
+                      setStep(0);
+                    }}
+                  >
+                    <Undo2 size={17} />
+                  </button>
+                  <span>
+                    {paint === null
+                      ? 'ドラッグで消す'
+                      : paint
+                        ? 'DMC ' + paint + ' でドラッグして塗る'
+                        : '色を選ぶと編集できます'}
+                  </span>
+                </div>
+                <div className="zoom-tools">
+                  <button
+                    aria-label="縮小"
+                    disabled={zoom <= 0.6}
+                    onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
+                  >
+                    <ZoomOut size={17} />
+                  </button>
+                  <span>{Math.round(zoom * 100)}%</span>
+                  <button
+                    aria-label="拡大"
+                    disabled={zoom >= 3}
+                    onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                  >
+                    <ZoomIn size={17} />
+                  </button>
+                </div>
+              </div>
               <div className="board-scroll">
                 <div
                   className="board-wrap"
@@ -971,62 +1013,6 @@ export default function Home() {
                       </g>
                     )}
                   </svg>
-                </div>
-              </div>
-              <div className="canvas-bottom">
-                <div className="edit-tools">
-                  <button
-                    aria-label="選択を解除"
-                    className={paint === undefined ? 'active' : ''}
-                    onClick={() => setPaint(undefined)}
-                  >
-                    <Grid2X2 size={17} />
-                  </button>
-                  <button
-                    aria-label="消しゴム"
-                    className={paint === null ? 'active' : ''}
-                    onClick={() => {
-                      setPaint(null);
-                      setView('pattern');
-                    }}
-                  >
-                    <Eraser size={17} />
-                  </button>
-                  <button
-                    aria-label="一つ戻す"
-                    disabled={!history.length}
-                    onClick={() => {
-                      setPattern(history[history.length - 1]);
-                      setHistory((h) => h.slice(0, -1));
-                      setStep(0);
-                    }}
-                  >
-                    <Undo2 size={17} />
-                  </button>
-                  <span>
-                    {paint === null
-                      ? 'ドラッグで消す'
-                      : paint
-                        ? 'DMC ' + paint + ' でドラッグして塗る'
-                        : '色を選ぶと編集できます'}
-                  </span>
-                </div>
-                <div className="zoom-tools">
-                  <button
-                    aria-label="縮小"
-                    disabled={zoom <= 0.6}
-                    onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
-                  >
-                    <ZoomOut size={17} />
-                  </button>
-                  <span>{Math.round(zoom * 100)}%</span>
-                  <button
-                    aria-label="拡大"
-                    disabled={zoom >= 3}
-                    onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-                  >
-                    <ZoomIn size={17} />
-                  </button>
                 </div>
               </div>
             </>

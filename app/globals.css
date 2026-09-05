@@ -552,7 +552,7 @@ h1 {
 .pattern-grid.painting {
   cursor: crosshair;
 }
-.canvas-bottom {
+.canvas-actions {
   background: #fafbf7;
   border-top: 1px solid #dce3dc;
   display: flex;
@@ -561,14 +561,14 @@ h1 {
   padding: 13px 16px;
   gap: 10px;
 }
-.canvas-bottom button {
+.canvas-actions button {
   background: none;
   border: 0;
   padding: 6px;
   border-radius: 4px;
   color: #788875;
 }
-.canvas-bottom button.active {
+.canvas-actions button.active {
   background: #e5ecdd;
   color: #345238;
 }
@@ -946,7 +946,7 @@ footer button {
   .setting {
     margin: 25px 0;
   }
-  .canvas-bottom {
+  .canvas-actions {
     padding: 10px;
   }
   .hole-diagram {
@@ -960,7 +960,7 @@ footer button {
   .guide-panel,
   footer,
   .canvas-toolbar,
-  .canvas-bottom {
+  .canvas-actions {
     display: none;
   }
   .workspace {
@@ -1532,4 +1532,9 @@ footer button {
   .app-shell {
     padding-bottom: 0;
   }
+}
+
+.canvas-actions {
+  border-top: 0;
+  border-bottom: 1px solid #dce3dc;
 }
