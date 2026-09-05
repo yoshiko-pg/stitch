@@ -775,13 +775,6 @@ export default function Home() {
             <>
               <div className="canvas-actions">
                 <div className="edit-tools">
-                  <button
-                    className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
-                    aria-pressed={showSymbols}
-                    onClick={() => setShowSymbols(!showSymbols)}
-                  >
-                    A 記号
-                  </button>
                   <RadioGroup
                     className="paint-color-options"
                     aria-label="塗る色"
@@ -805,9 +798,7 @@ export default function Home() {
                           className="paint-color-radio"
                           style={{ background: t.hex, color: ink(t.hex) }}
                         />
-                        <span>
-                          {symbols[i]} · {t.id}
-                        </span>
+                        <span>{t.name}</span>
                       </label>
                     ))}
                   </RadioGroup>
@@ -838,6 +829,13 @@ export default function Home() {
                     onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
                   >
                     <ZoomIn size={17} />
+                  </button>
+                  <button
+                    className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
+                    aria-pressed={showSymbols}
+                    onClick={() => setShowSymbols(!showSymbols)}
+                  >
+                    A 記号
                   </button>
                 </div>
               </div>
@@ -1147,7 +1145,7 @@ function PatternPreview({
   cells: Pattern['cells'];
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [count, setCount] = useState(14);
+  const count = 14;
   useEffect(() => {
     const target = canvas.current;
     if (!target) return;
@@ -1178,24 +1176,10 @@ function PatternPreview({
             style={{ width: cssWidth * scale, height: cssHeight * scale }}
           />
         </div>
-        <div className="preview-size">
-          <label htmlFor="preview-count">布目</label>
-          <NativeSelect
-            id="preview-count"
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
-          >
-            {[11, 14, 16, 18].map((n) => (
-              <NativeSelectOption key={n} value={n}>
-                {n} ct
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <p title="1インチあたりの目数から計算した図案のサイズです。画面上の大きさは端末によって変わります。">
+        <p title="14ctの布での完成サイズ目安です。画面上の大きさは端末によって変わります。">
           {((pattern.width / count) * 2.54).toFixed(1)} ×{' '}
           {((pattern.height / count) * 2.54).toFixed(1)} cm{' '}
-          <span>{scale < 1 ? '縮小表示' : '実寸目安'}</span>
+          <span>14ct目安</span>
         </p>
       </div>
     </details>
