@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { route, quantize, sample, threads } from '../lib/stitch.ts';
+import { route, quantize, sample, threads, colorRuns } from '../lib/stitch.ts';
 function verify(p) {
   const steps = route(p);
   assert.equal(steps.length, p.cells.filter(Boolean).length * 2);
@@ -16,10 +16,18 @@ function verify(p) {
     assert.equal(Math.min(s.from[0], s.to[0]), x);
     assert.equal(Math.min(s.from[1], s.to[1]), y);
     const m = marks.get(s.cell) || [];
-    m.push(s.to[0] - s.from[0]);
+    m.push((s.to[0] - s.from[0]) * (s.to[1] - s.from[1]));
     marks.set(s.cell, m);
   }
   for (const m of marks.values()) assert.deepEqual(m, [1, -1]);
+  for (let i = 1; i < steps.length; i++) {
+    if (steps[i].color === steps[i - 1].color)
+      assert.notDeepEqual(
+        steps[i].from,
+        steps[i - 1].to,
+        'must not undo previous stitch through the same hole',
+      );
+  }
   return steps;
 }
 test('every occupancy combination of a 3×3 pattern covers both diagonals exactly once', () => {
@@ -103,4 +111,52 @@ test('empty and transparent images have no steps', () => {
     quantize(new Uint8ClampedArray(16), 2, 2, 8, 'empty').cells,
     [null, null, null, null],
   );
+});
+
+test('lower backslash and upper slash use the expected holes', () => {
+  const s = route({ width: 1, height: 1, cells: ['321'], name: 'one' });
+  assert.deepEqual(
+    s.map((s) => [s.from, s.to]),
+    [
+      [
+        [0, 0],
+        [1, 1],
+      ],
+      [
+        [1, 0],
+        [0, 1],
+      ],
+    ],
+  );
+});
+test('stacked rows never immediately exit through the last entry hole', () => {
+  verify({ width: 2, height: 3, cells: Array(6).fill('321'), name: 'stacked' });
+});
+test('overview groups share exact guide coordinates and continuous numbering', () => {
+  const p = sample();
+  for (const t of threads) {
+    const runs = colorRuns(p, t.id),
+      expected = route(p).filter((s) => s.color === t.id);
+    const flattened = runs.flatMap((r) => r.steps);
+    assert.deepEqual(
+      flattened.map(({ needleNumber: _needleNumber, ...s }) => s),
+      expected,
+    );
+    assert.deepEqual(
+      flattened.map((s) => s.needleNumber),
+      flattened.map((_, i) => i + 1),
+    );
+    for (const run of runs) {
+      const half = run.steps.length / 2;
+      assert.equal(run.steps[half].kind, 'turn');
+      assert.deepEqual(
+        run.steps.slice(0, half).map((s) => s.cell),
+        run.steps
+          .slice(half)
+          .map((s) => s.cell)
+          .reverse(),
+      );
+    }
+  }
+  assert.deepEqual(colorRuns(p, 'not-a-thread'), []);
 });

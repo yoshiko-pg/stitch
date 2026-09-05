@@ -3,7 +3,7 @@
 /* oxlint-disable react/react-compiler */
 // Inline SVGs require an accessible image role; replacing them with img would lose their dynamic geometry.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
-import Link from 'next/link';
+import { RouteOverview } from './route-overview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Upload,
@@ -37,7 +37,7 @@ export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
   const [colors, setColors] = useState(8);
-  const [view, setView] = useState('pattern');
+  const [view, setView] = useState('guide');
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [step, setStep] = useState(0);
@@ -61,7 +61,9 @@ export default function Home() {
   const active = threads.find((t) => t.id === current?.color);
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('ito-project-v1');
+      const raw =
+        localStorage.getItem('ito-project-v2') ||
+        localStorage.getItem('ito-project-v1');
       if (raw) {
         const s = JSON.parse(raw);
         if (valid(s.pattern)) {
@@ -70,12 +72,16 @@ export default function Home() {
             Math.max(
               0,
               Math.min(
-                Math.floor(Number(s.step)) || 0,
+                s.routeVersion === 2 ? Math.floor(Number(s.step)) || 0 : 0,
                 route(s.pattern).length,
               ),
             ),
           );
-          setMessage('前回の図案と進み具合を復元しました');
+          setMessage(
+            s.routeVersion === 2
+              ? '前回の図案と進み具合を復元しました'
+              : '図案を復元しました。下糸の向きを変更したため、運針は最初からになります。',
+          );
         }
       }
     } catch {
@@ -86,7 +92,10 @@ export default function Home() {
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem('ito-project-v1', JSON.stringify({ pattern, step }));
+      localStorage.setItem(
+        'ito-project-v2',
+        JSON.stringify({ pattern, step, routeVersion: 2 }),
+      );
       setSaved(true);
     } catch {
       setSaved(false);
@@ -302,9 +311,9 @@ export default function Home() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="ito ホーム">
+        <a className="brand" href="./" aria-label="ito ホーム">
           ito<span className="brand-stitch">×</span>
-        </Link>
+        </a>
         <span className="brand-sub">クロスステッチ図案室</span>
         <span className="local-note">
           <span /> {saved ? 'この端末に自動保存' : '端末内で画像を処理'}
@@ -484,17 +493,20 @@ export default function Home() {
                 </TabsTrigger>
                 <TabsTrigger value="guide">
                   <Route size={16} />
-                  運針ガイド
+                  色ごとの運針
                 </TabsTrigger>
+                <TabsTrigger value="step">ひと針ずつ</TabsTrigger>
               </TabsList>
             </Tabs>
-            <button
-              className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
-              aria-pressed={showSymbols}
-              onClick={() => setShowSymbols(!showSymbols)}
-            >
-              A 記号
-            </button>
+            {view !== 'guide' && (
+              <button
+                className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
+                aria-pressed={showSymbols}
+                onClick={() => setShowSymbols(!showSymbols)}
+              >
+                A 記号
+              </button>
+            )}
           </div>
           <div className="project-heading">
             <div>
@@ -509,210 +521,218 @@ export default function Home() {
               {sourceName ? 'MY PATTERN' : 'STITCH PATTERN'}
             </span>
           </div>
-          <div className="board-scroll">
-            <div
-              className="board-wrap"
-              style={{
-                width:
-                  Math.max(300, Math.max(pattern.width, pattern.height) * 17) *
-                  zoom,
-              }}
-            >
-              <svg
-                ref={board}
-                className={
-                  'pattern-grid ' + (paint !== undefined ? 'painting' : '')
-                }
-                viewBox={`-2 -2 ${pattern.width + 4} ${pattern.height + 4}`}
-                role="img"
-                aria-label={`${pattern.width}×${pattern.height}目の図案。運針位置を枠で表示。`}
-              >
-                <rect
-                  x={0}
-                  y={0}
-                  width={pattern.width}
-                  height={pattern.height}
-                  fill="#fffefa"
-                />
-                {pattern.cells.map((c, i) => {
-                  const t = threads.find((t) => t.id === c);
-                  const x = i % pattern.width,
-                    y = Math.floor(i / pattern.width);
-                  const faded =
-                    view === 'guide' && current && c !== current.color;
-                  return (
-                    <g
-                      key={i}
-                      opacity={faded ? 0.2 : 1}
-                      onClick={() => edit(i)}
-                    >
-                      <rect
-                        x={x}
-                        y={y}
-                        width={1}
-                        height={1}
-                        fill={t?.hex || '#fffefa'}
-                      />
-                      {t &&
-                        (showSymbols ? (
-                          <text
-                            x={x + 0.5}
-                            y={y + 0.68}
-                            textAnchor="middle"
-                            fontSize=".48"
-                            fill={ink(t.hex)}
-                            fontFamily="monospace"
-                          >
-                            {symbols[palette.indexOf(t)]}
-                          </text>
-                        ) : (
-                          <path
-                            d={`M${x + 0.17} ${y + 0.17}l.66 .66m0 -.66l-.66 .66`}
-                            fill="none"
-                            stroke={ink(t.hex)}
-                            opacity=".45"
-                            strokeWidth=".07"
-                          />
-                        ))}
-                    </g>
-                  );
-                })}
-                {Array.from({ length: pattern.width + 1 }, (_, x) => (
-                  <path
-                    key={'x' + x}
-                    d={`M${x} 0V${pattern.height}`}
-                    stroke={x % 10 === 0 ? '#6f807d' : '#b7beb5'}
-                    strokeWidth={x % 10 === 0 ? 0.055 : 0.018}
-                    pointerEvents="none"
-                  />
-                ))}
-                {Array.from({ length: pattern.height + 1 }, (_, y) => (
-                  <path
-                    key={'y' + y}
-                    d={`M0 ${y}H${pattern.width}`}
-                    stroke={y % 10 === 0 ? '#6f807d' : '#b7beb5'}
-                    strokeWidth={y % 10 === 0 ? 0.055 : 0.018}
-                    pointerEvents="none"
-                  />
-                ))}
-                {Array.from(
-                  { length: Math.floor(pattern.width / 5) + 1 },
-                  (_, i) => (
-                    <text
-                      key={'nx' + i}
-                      x={i * 5}
-                      y={-0.65}
-                      fontSize=".6"
-                      textAnchor="middle"
-                      fill="#5a6965"
-                    >
-                      {i * 5}
-                    </text>
-                  ),
-                )}
-                {Array.from(
-                  { length: Math.floor(pattern.height / 5) + 1 },
-                  (_, i) => (
-                    <text
-                      key={'ny' + i}
-                      x={-1}
-                      y={i * 5 + 0.2}
-                      fontSize=".6"
-                      textAnchor="middle"
-                      fill="#5a6965"
-                    >
-                      {i * 5}
-                    </text>
-                  ),
-                )}
-                {view === 'guide' && current && step < sequence.length && (
-                  <g pointerEvents="none">
+          {view === 'guide' ? (
+            <RouteOverview pattern={pattern} />
+          ) : (
+            <>
+              <div className="board-scroll">
+                <div
+                  className="board-wrap"
+                  style={{
+                    width:
+                      Math.max(
+                        300,
+                        Math.max(pattern.width, pattern.height) * 17,
+                      ) * zoom,
+                  }}
+                >
+                  <svg
+                    ref={board}
+                    className={
+                      'pattern-grid ' + (paint !== undefined ? 'painting' : '')
+                    }
+                    viewBox={`-2 -2 ${pattern.width + 4} ${pattern.height + 4}`}
+                    role="img"
+                    aria-label={`${pattern.width}×${pattern.height}目の図案。運針位置を枠で表示。`}
+                  >
                     <rect
-                      x={(current.cell % pattern.width) - 0.12}
-                      y={Math.floor(current.cell / pattern.width) - 0.12}
-                      width={1.24}
-                      height={1.24}
-                      fill="none"
-                      stroke="#102f2b"
-                      strokeWidth=".14"
+                      x={0}
+                      y={0}
+                      width={pattern.width}
+                      height={pattern.height}
+                      fill="#fffefa"
                     />
-                    <circle
-                      cx={current.from[0]}
-                      cy={current.from[1]}
-                      r=".18"
-                      fill="#16a085"
-                      stroke="white"
-                      strokeWidth=".05"
-                    />
-                    <circle
-                      cx={current.to[0]}
-                      cy={current.to[1]}
-                      r=".18"
-                      fill="#f16b43"
-                      stroke="white"
-                      strokeWidth=".05"
-                    />
-                  </g>
-                )}
-              </svg>
-            </div>
-          </div>
-          <div className="canvas-bottom">
-            <div className="edit-tools">
-              <button
-                aria-label="選択を解除"
-                className={paint === undefined ? 'active' : ''}
-                onClick={() => setPaint(undefined)}
-              >
-                <Grid2X2 size={17} />
-              </button>
-              <button
-                aria-label="消しゴム"
-                className={paint === null ? 'active' : ''}
-                onClick={() => {
-                  setPaint(null);
-                  setView('pattern');
-                }}
-              >
-                <Eraser size={17} />
-              </button>
-              <button
-                aria-label="一つ戻す"
-                disabled={!history.length}
-                onClick={() => {
-                  setPattern(history[history.length - 1]);
-                  setHistory((h) => h.slice(0, -1));
-                  setStep(0);
-                }}
-              >
-                <Undo2 size={17} />
-              </button>
-              <span>
-                {paint === null
-                  ? '消しゴム'
-                  : paint
-                    ? 'DMC ' + paint + ' で描く'
-                    : '色を選ぶと編集できます'}
-              </span>
-            </div>
-            <div className="zoom-tools">
-              <button
-                aria-label="縮小"
-                disabled={zoom <= 0.6}
-                onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
-              >
-                <ZoomOut size={17} />
-              </button>
-              <span>{Math.round(zoom * 100)}%</span>
-              <button
-                aria-label="拡大"
-                disabled={zoom >= 3}
-                onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-              >
-                <ZoomIn size={17} />
-              </button>
-            </div>
-          </div>
+                    {pattern.cells.map((c, i) => {
+                      const t = threads.find((t) => t.id === c);
+                      const x = i % pattern.width,
+                        y = Math.floor(i / pattern.width);
+                      const faded =
+                        view === 'step' && current && c !== current.color;
+                      return (
+                        <g
+                          key={i}
+                          opacity={faded ? 0.2 : 1}
+                          onClick={() => edit(i)}
+                        >
+                          <rect
+                            x={x}
+                            y={y}
+                            width={1}
+                            height={1}
+                            fill={t?.hex || '#fffefa'}
+                          />
+                          {t &&
+                            (showSymbols ? (
+                              <text
+                                x={x + 0.5}
+                                y={y + 0.68}
+                                textAnchor="middle"
+                                fontSize=".48"
+                                fill={ink(t.hex)}
+                                fontFamily="monospace"
+                              >
+                                {symbols[palette.indexOf(t)]}
+                              </text>
+                            ) : (
+                              <path
+                                d={`M${x + 0.17} ${y + 0.17}l.66 .66m0 -.66l-.66 .66`}
+                                fill="none"
+                                stroke={ink(t.hex)}
+                                opacity=".45"
+                                strokeWidth=".07"
+                              />
+                            ))}
+                        </g>
+                      );
+                    })}
+                    {Array.from({ length: pattern.width + 1 }, (_, x) => (
+                      <path
+                        key={'x' + x}
+                        d={`M${x} 0V${pattern.height}`}
+                        stroke={x % 10 === 0 ? '#6f807d' : '#b7beb5'}
+                        strokeWidth={x % 10 === 0 ? 0.055 : 0.018}
+                        pointerEvents="none"
+                      />
+                    ))}
+                    {Array.from({ length: pattern.height + 1 }, (_, y) => (
+                      <path
+                        key={'y' + y}
+                        d={`M0 ${y}H${pattern.width}`}
+                        stroke={y % 10 === 0 ? '#6f807d' : '#b7beb5'}
+                        strokeWidth={y % 10 === 0 ? 0.055 : 0.018}
+                        pointerEvents="none"
+                      />
+                    ))}
+                    {Array.from(
+                      { length: Math.floor(pattern.width / 5) + 1 },
+                      (_, i) => (
+                        <text
+                          key={'nx' + i}
+                          x={i * 5}
+                          y={-0.65}
+                          fontSize=".6"
+                          textAnchor="middle"
+                          fill="#5a6965"
+                        >
+                          {i * 5}
+                        </text>
+                      ),
+                    )}
+                    {Array.from(
+                      { length: Math.floor(pattern.height / 5) + 1 },
+                      (_, i) => (
+                        <text
+                          key={'ny' + i}
+                          x={-1}
+                          y={i * 5 + 0.2}
+                          fontSize=".6"
+                          textAnchor="middle"
+                          fill="#5a6965"
+                        >
+                          {i * 5}
+                        </text>
+                      ),
+                    )}
+                    {view === 'step' && current && step < sequence.length && (
+                      <g pointerEvents="none">
+                        <rect
+                          x={(current.cell % pattern.width) - 0.12}
+                          y={Math.floor(current.cell / pattern.width) - 0.12}
+                          width={1.24}
+                          height={1.24}
+                          fill="none"
+                          stroke="#102f2b"
+                          strokeWidth=".14"
+                        />
+                        <circle
+                          cx={current.from[0]}
+                          cy={current.from[1]}
+                          r=".18"
+                          fill="#16a085"
+                          stroke="white"
+                          strokeWidth=".05"
+                        />
+                        <circle
+                          cx={current.to[0]}
+                          cy={current.to[1]}
+                          r=".18"
+                          fill="#f16b43"
+                          stroke="white"
+                          strokeWidth=".05"
+                        />
+                      </g>
+                    )}
+                  </svg>
+                </div>
+              </div>
+              <div className="canvas-bottom">
+                <div className="edit-tools">
+                  <button
+                    aria-label="選択を解除"
+                    className={paint === undefined ? 'active' : ''}
+                    onClick={() => setPaint(undefined)}
+                  >
+                    <Grid2X2 size={17} />
+                  </button>
+                  <button
+                    aria-label="消しゴム"
+                    className={paint === null ? 'active' : ''}
+                    onClick={() => {
+                      setPaint(null);
+                      setView('pattern');
+                    }}
+                  >
+                    <Eraser size={17} />
+                  </button>
+                  <button
+                    aria-label="一つ戻す"
+                    disabled={!history.length}
+                    onClick={() => {
+                      setPattern(history[history.length - 1]);
+                      setHistory((h) => h.slice(0, -1));
+                      setStep(0);
+                    }}
+                  >
+                    <Undo2 size={17} />
+                  </button>
+                  <span>
+                    {paint === null
+                      ? '消しゴム'
+                      : paint
+                        ? 'DMC ' + paint + ' で描く'
+                        : '色を選ぶと編集できます'}
+                  </span>
+                </div>
+                <div className="zoom-tools">
+                  <button
+                    aria-label="縮小"
+                    disabled={zoom <= 0.6}
+                    onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
+                  >
+                    <ZoomOut size={17} />
+                  </button>
+                  <span>{Math.round(zoom * 100)}%</span>
+                  <button
+                    aria-label="拡大"
+                    disabled={zoom >= 3}
+                    onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                  >
+                    <ZoomIn size={17} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </section>
         <aside className="guide-panel">
           <div className="panel-heading">
@@ -720,138 +740,149 @@ export default function Home() {
             <h2>針の道しるべ</h2>
             <span className="beta">BETA</span>
           </div>
-          <p className="guide-intro">
-            出す穴と、入れる穴。
-            <br />
-            ひと針ずつ確認して進めましょう。
-          </p>
-          {current && step < sequence.length ? (
+          {view === 'guide' ? (
+            <OverviewHelp />
+          ) : (
             <>
-              <div className="current-thread">
-                <span className="swatch" style={{ background: active?.hex }} />
-                <div>
-                  <small>いま使う糸</small>
-                  <strong>
-                    DMC {active?.id} <span>{active?.name}</span>
-                  </strong>
+              <p className="guide-intro">
+                出す穴と、入れる穴。
+                <br />
+                ひと針ずつ確認して進めましょう。
+              </p>
+              {current && step < sequence.length ? (
+                <>
+                  <div className="current-thread">
+                    <span
+                      className="swatch"
+                      style={{ background: active?.hex }}
+                    />
+                    <div>
+                      <small>いま使う糸</small>
+                      <strong>
+                        DMC {active?.id} <span>{active?.name}</span>
+                      </strong>
+                    </div>
+                  </div>
+                  <div
+                    className={
+                      'instruction ' + (current.kind === 'turn' ? 'turn' : '')
+                    }
+                  >
+                    <span className="step-label">
+                      STEP {step + 1} / {sequence.length}
+                    </span>
+                    <h3>
+                      {current.kind === 'cut' ? (
+                        <Scissors size={19} />
+                      ) : current.kind === 'turn' ? (
+                        <RotateCcw size={19} />
+                      ) : (
+                        <ArrowRight size={19} />
+                      )}{' '}
+                      {labels[current.kind]}
+                    </h3>
+                    <HoleDiagram from={current.from} to={current.to} />
+                    <div className="hole-legend">
+                      <span>
+                        <i className="out-dot" />
+                        針を出す
+                      </span>
+                      <span>
+                        <i className="in-dot" />
+                        針を入れる
+                      </span>
+                    </div>
+                    <div className="coordinates">
+                      <p>
+                        出す穴 <strong>({current.from.join(', ')})</strong>
+                      </p>
+                      <ArrowRight size={16} />
+                      <p>
+                        入れる穴 <strong>({current.to.join(', ')})</strong>
+                      </p>
+                    </div>
+                    <p className="instruction-note">
+                      {current.kind === 'cut'
+                        ? '裏で糸を始末して切り、新しい糸を固定してから再開します。'
+                        : current.kind === 'jump'
+                          ? `前の穴から裏側を約${current.travel.toFixed(1)}目分移動します。糸を強く引きすぎないで。`
+                          : current.kind === 'turn'
+                            ? '右端まで来ました。上に重なる「／」を刺して、左へ戻ります。'
+                            : current.kind === 'start'
+                              ? step > 0
+                                ? '前の色の糸を裏で始末します。新しい色の糸を固定して、緑の穴から出します。'
+                                : '裏側で糸を固定してから、緑の穴に針を出します。'
+                              : '緑の穴から表へ出し、オレンジの穴から裏へ入れます。'}
+                    </p>
+                  </div>
+                  <button
+                    className="primary full next"
+                    onClick={() => {
+                      setStep((s) => Math.min(sequence.length, s + 1));
+                      setView('step');
+                    }}
+                  >
+                    刺した、次のひと針へ
+                    <ArrowRight size={17} />
+                  </button>
+                  <button
+                    className="back"
+                    disabled={step === 0}
+                    onClick={() => {
+                      setStep((s) => s - 1);
+                      setView('step');
+                    }}
+                  >
+                    <ArrowLeft size={15} />
+                    ひと針戻る
+                  </button>
+                </>
+              ) : (
+                <div className="finished">
+                  <Check size={32} />
+                  <h3>
+                    {stitched ? 'できあがり！' : '糸色を選んで描いてみよう'}
+                  </h3>
+                  <p>
+                    {stitched
+                      ? '最後に裏側で糸を始末しましょう。'
+                      : '色のあるマスから運針が作られます。'}
+                  </p>
+                  <button className="outline" onClick={() => setStep(0)}>
+                    最初に戻る
+                  </button>
                 </div>
+              )}
+              <div className="progress-label">
+                <span>運針の進み具合</span>
+                <strong>{progress}%</strong>
               </div>
-              <div
-                className={
-                  'instruction ' + (current.kind === 'turn' ? 'turn' : '')
-                }
-              >
-                <span className="step-label">
-                  STEP {step + 1} / {sequence.length}
-                </span>
-                <h3>
-                  {current.kind === 'cut' ? (
-                    <Scissors size={19} />
-                  ) : current.kind === 'turn' ? (
-                    <RotateCcw size={19} />
-                  ) : (
-                    <ArrowRight size={19} />
-                  )}{' '}
-                  {labels[current.kind]}
-                </h3>
-                <HoleDiagram from={current.from} to={current.to} />
-                <div className="hole-legend">
-                  <span>
-                    <i className="out-dot" />
-                    針を出す
-                  </span>
-                  <span>
-                    <i className="in-dot" />
-                    針を入れる
-                  </span>
-                </div>
-                <div className="coordinates">
-                  <p>
-                    出す穴 <strong>({current.from.join(', ')})</strong>
-                  </p>
-                  <ArrowRight size={16} />
-                  <p>
-                    入れる穴 <strong>({current.to.join(', ')})</strong>
-                  </p>
-                </div>
-                <p className="instruction-note">
-                  {current.kind === 'cut'
-                    ? '裏で糸を始末して切り、新しい糸を固定してから再開します。'
-                    : current.kind === 'jump'
-                      ? `前の穴から裏側を約${current.travel.toFixed(1)}目分移動します。糸を強く引きすぎないで。`
-                      : current.kind === 'turn'
-                        ? '右端まで来ました。上に重なる「＼」を刺して、左へ戻ります。'
-                        : current.kind === 'start'
-                          ? step > 0
-                            ? '前の色の糸を裏で始末します。新しい色の糸を固定して、緑の穴から出します。'
-                            : '裏側で糸を固定してから、緑の穴に針を出します。'
-                          : '緑の穴から表へ出し、オレンジの穴から裏へ入れます。'}
+              <div className="progress-track">
+                <div style={{ width: progress + '%' }} />
+              </div>
+              <p className="micro">
+                1ステップ＝片方の斜めのひと針。
+                <br />
+                穴の座標は図案の左上が (0, 0) です。
+              </p>
+              <details className="route-rules">
+                <summary>運針の基本パターン</summary>
+                <p>
+                  ① 下糸「＼」を右へ刺す
+                  <br />② 上糸「／」で左へ戻る
+                  <br />③ 次のまとまりへ裏側を移動
+                  <br />④ 3目を超える移動は糸を切って再開
                 </p>
-              </div>
-              <button
-                className="primary full next"
-                onClick={() => {
-                  setStep((s) => Math.min(sequence.length, s + 1));
-                  setView('guide');
-                }}
-              >
-                刺した、次のひと針へ
-                <ArrowRight size={17} />
-              </button>
-              <button
-                className="back"
-                disabled={step === 0}
-                onClick={() => {
-                  setStep((s) => s - 1);
-                  setView('guide');
-                }}
-              >
-                <ArrowLeft size={15} />
-                ひと針戻る
+                <p>
+                  下糸は「＼」、上糸は「／」に統一します。裏側の糸始末は手作業です。最短経路や絡まないことを保証するものではありません。
+                </p>
+              </details>
+              <button className="text-button" onClick={exportRoute}>
+                <Download size={15} />
+                運針表をCSVで保存
               </button>
             </>
-          ) : (
-            <div className="finished">
-              <Check size={32} />
-              <h3>{stitched ? 'できあがり！' : '糸色を選んで描いてみよう'}</h3>
-              <p>
-                {stitched
-                  ? '最後に裏側で糸を始末しましょう。'
-                  : '色のあるマスから運針が作られます。'}
-              </p>
-              <button className="outline" onClick={() => setStep(0)}>
-                最初に戻る
-              </button>
-            </div>
           )}
-          <div className="progress-label">
-            <span>運針の進み具合</span>
-            <strong>{progress}%</strong>
-          </div>
-          <div className="progress-track">
-            <div style={{ width: progress + '%' }} />
-          </div>
-          <p className="micro">
-            1ステップ＝片方の斜めのひと針。
-            <br />
-            穴の座標は図案の左上が (0, 0) です。
-          </p>
-          <details className="route-rules">
-            <summary>運針の基本パターン</summary>
-            <p>
-              ① 同じ色を右へ「／」で進む
-              <br />② 右端で折り返し「＼」で戻る
-              <br />③ 次のまとまりへ裏側を移動
-              <br />④ 3目を超える移動は糸を切って再開
-            </p>
-            <p>
-              上糸は「＼」に統一します。裏側の糸始末は手作業です。最短経路や絡まないことを保証するものではありません。
-            </p>
-          </details>
-          <button className="text-button" onClick={exportRoute}>
-            <Download size={15} />
-            運針表をCSVで保存
-          </button>
         </aside>
       </main>
       <footer>
@@ -871,7 +902,7 @@ export default function Home() {
         <button
           onClick={() =>
             download(
-              JSON.stringify({ pattern, step }),
+              JSON.stringify({ pattern, step, routeVersion: 2 }),
               'ito-project.json',
               'application/json',
             )
@@ -900,7 +931,9 @@ export default function Home() {
                   Math.max(
                     0,
                     Math.min(
-                      Math.floor(Number(s.step)) || 0,
+                      s.routeVersion === 2
+                        ? Math.floor(Number(s.step)) || 0
+                        : 0,
                       route(s.pattern).length,
                     ),
                   ),
@@ -998,5 +1031,42 @@ function HoleDiagram({
         入
       </text>
     </svg>
+  );
+}
+
+function OverviewHelp() {
+  return (
+    <div className="overview-help">
+      <h3>色ごとに、道すじを一覧。</h3>
+      <p>見たい糸色を選ぶと、その色の運針をまとめて表示します。</p>
+      <ol>
+        <li>
+          図の <b>区間1</b> から始める
+        </li>
+        <li>
+          下糸 <b>＼</b> を右へ刺す
+        </li>
+        <li>
+          右端で折り返し、上糸 <b>／</b> で左へ戻る
+        </li>
+        <li>移動の案内を確認して次の区間へ</li>
+      </ol>
+      <div className="route-key">
+        <p>
+          <span className="lower-key">青い線</span> 下糸・往路 →
+        </p>
+        <p>
+          <span className="upper-key">橙の線</span> 上糸・復路 ←
+        </p>
+        <p>点線：裏側の移動</p>
+        <p>✂：糸を始末して再開</p>
+      </div>
+      <p>
+        下の区間一覧には、出す穴・入れる穴と順番をすべて表示します。1ステップずつ送る必要はありません。
+      </p>
+      <p className="micro">
+        区間ごとに「下糸→上糸」を完了してください。図案全体の下糸を先に刺す順番ではありません。
+      </p>
+    </div>
   );
 }

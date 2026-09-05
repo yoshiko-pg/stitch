@@ -60,8 +60,13 @@ export function route(p: Pattern): Stitch[] {
         while (x + 1 < p.width && p.cells[y * p.width + x + 1] === color) x++;
         const end = x;
         for (let a = start; a <= end; a++) {
-          const from: Point = [a, y + 1],
-            to: Point = [a + 1, y];
+          let from: Point = [a, y],
+            to: Point = [a + 1, y + 1];
+          // Never exit the hole just entered: it would undo the previous stitch.
+          // Reversing this diagonal preserves the lower \ while choosing another exit.
+          if (previous && from[0] === previous[0] && from[1] === previous[1]) {
+            [from, to] = [to, from];
+          }
           const travel = previous
             ? Math.hypot(from[0] - previous[0], from[1] - previous[1])
             : 0;
@@ -76,8 +81,8 @@ export function route(p: Pattern): Stitch[] {
           previous = to;
         }
         for (let a = end; a >= start; a--) {
-          const from: Point = [a + 1, y + 1],
-            to: Point = [a, y];
+          const from: Point = [a + 1, y],
+            to: Point = [a, y + 1];
           result.push({
             color,
             cell: y * p.width + a,
@@ -180,4 +185,21 @@ export function sample(): Pattern {
               : 'Blanc';
   });
   return { width, height, cells, name: 'ひし形のステッチサンプラー' };
+}
+
+export type RouteRun = {
+  id: number;
+  steps: (Stitch & { needleNumber: number })[];
+};
+export function colorRuns(pattern: Pattern, color: string): RouteRun[] {
+  const runs: RouteRun[] = [];
+  route(pattern)
+    .filter((s) => s.color === color)
+    .forEach((s, i) => {
+      if (['start', 'jump', 'cut'].includes(s.kind)) {
+        runs.push({ id: runs.length + 1, steps: [] });
+      }
+      runs[runs.length - 1].steps.push({ ...s, needleNumber: i + 1 });
+    });
+  return runs;
 }

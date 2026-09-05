@@ -1044,3 +1044,251 @@ footer button {
 .canvas-panel {
   min-height: 640px;
 }
+.route-overview {
+  padding: 8px 22px 28px;
+  min-width: 0;
+}
+.route-color-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.route-color-list button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid #cbd8c8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.route-color-list button.selected {
+  border: 2px solid #285442;
+  background: #e4edde;
+  padding: 7px 9px;
+}
+.route-color-list i {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #0002;
+}
+.overview-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.overview-title h3,
+.all-runs-heading h3 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.overview-title h3 span {
+  font-size: 14px;
+  font-weight: 400;
+}
+.overview-title p,
+.all-runs-heading p,
+.overview-caption {
+  font-size: 14px;
+  color: #63745e;
+  line-height: 1.7;
+}
+.overview-zoom {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: 12px;
+}
+.overview-zoom button {
+  border: 1px solid #ccd8c5;
+  background: white;
+  border-radius: 5px;
+  width: 30px;
+  height: 30px;
+}
+.overview-map-scroll {
+  max-height: 470px;
+  overflow: auto;
+  background: #fafcf7;
+  border: 1px solid #d7e0d1;
+  border-radius: 8px;
+}
+.overview-map-scroll svg {
+  max-width: none;
+  display: block;
+  margin: auto;
+}
+.overview-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.all-runs-heading {
+  margin: 28px 0 16px;
+}
+.run-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.run-list > li {
+  background: white;
+  border: 1px solid #d5dfce;
+  border-radius: 9px;
+  padding: 16px;
+  min-width: 0;
+}
+.run-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.run-heading strong {
+  font-size: 16px;
+}
+.run-heading span {
+  font-size: 12px;
+  color: #6f8068;
+}
+.run-transition {
+  font-size: 14px;
+  line-height: 1.7;
+  border-bottom: 1px solid #e2e9dc;
+  padding-bottom: 12px;
+  color: #5a7253;
+}
+.run-transition.cut {
+  color: #a34927;
+}
+.run-diagrams {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.run-layer {
+  min-width: 0;
+  background: #f9fbf6;
+  border-radius: 6px;
+  padding: 12px;
+}
+.run-layer h4 {
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+.run-layer-scroll {
+  overflow: auto;
+}
+.run-layer-scroll svg {
+  max-width: none;
+  display: block;
+}
+.run-layer p,
+.run-end {
+  font-size: 12px;
+  color: #718469;
+  line-height: 1.8;
+  margin: 6px 0 0;
+}
+.turn-between {
+  font-size: 14px;
+  color: #9a6437;
+  text-align: right;
+  line-height: 1.4;
+}
+.turn-between br {
+  display: none;
+}
+.overview-help h3 {
+  font-size: 17px;
+}
+.overview-help p,
+.overview-help li {
+  font-size: 14px;
+  line-height: 1.9;
+}
+.overview-help ol {
+  padding-left: 20px;
+}
+.overview-help li {
+  margin: 12px 0;
+}
+.route-key {
+  background: #f2f6ec;
+  padding: 10px 15px;
+  border-radius: 8px;
+}
+.lower-key {
+  color: #2376a0;
+  font-weight: 600;
+}
+.upper-key {
+  color: #b75e29;
+  font-weight: 600;
+}
+.overview-empty {
+  padding: 30px;
+}
+.canvas-panel:has(.route-overview) {
+  max-height: 1100px;
+  overflow-y: auto;
+}
+.workspace:has(.route-overview) {
+  align-items: start;
+}
+.workspace:has(.route-overview) .canvas-panel {
+  border-left: 1px solid #dce3dc;
+  border-right: 1px solid #dce3dc;
+}
+.workspace:has(.route-overview) .settings,
+.workspace:has(.route-overview) .guide-panel {
+  border: 0;
+}
+@media (max-width: 650px) {
+  .route-overview {
+    padding: 8px 12px 20px;
+  }
+  .canvas-panel:has(.route-overview) {
+    max-height: none;
+    overflow: visible;
+  }
+  .overview-map-scroll {
+    max-height: 400px;
+  }
+  .run-list > li {
+    padding: 12px;
+  }
+  .run-layer {
+    padding: 8px;
+  }
+  .overview-title {
+    flex-wrap: wrap;
+  }
+  .canvas-toolbar [data-slot='tabs-trigger'] {
+    padding: 7px 8px;
+  }
+}
+@media print {
+  .route-overview,
+  .run-list {
+    overflow: visible;
+  }
+  .canvas-panel:has(.route-overview) {
+    max-height: none;
+    overflow: visible;
+  }
+  .overview-map-scroll,
+  .run-layer-scroll {
+    overflow: visible;
+    max-height: none;
+  }
+  .run-list > li {
+    break-inside: avoid;
+  }
+}
