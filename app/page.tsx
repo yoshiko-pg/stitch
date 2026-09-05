@@ -471,7 +471,6 @@ export default function Home() {
       <main className="workspace">
         <aside className="settings">
           <div className="panel-heading">
-            <span className="section-number">01</span>
             <h2>図案をつくる</h2>
           </div>
           <input
