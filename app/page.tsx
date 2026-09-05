@@ -512,8 +512,6 @@ export default function Home() {
           >
             <Upload size={23} />
             <strong>{busy ? '変換しています…' : '画像をアップロード'}</strong>
-            <span>または、ここにドラッグ</span>
-            <small>JPG / PNG / WebP・20MBまで</small>
           </button>
           <div className="conversion-controls">
             <label htmlFor="conversion-mode">画像の変換方法</label>
@@ -535,13 +533,6 @@ export default function Home() {
                 写真向け · なめらか
               </NativeSelectOption>
             </NativeSelect>
-            <p>
-              {conversionMode === 'illustration'
-                ? '各マス内の代表色を選び、縮小で中間色を作りません。'
-                : conversionMode === 'pixel'
-                  ? '近くの1画素を選ぶ最近傍法です。既存のドット絵に向いています。'
-                  : '周囲の色を混ぜながら縮小し、階調をなめらかにします。'}
-            </p>
             {conversionMode === 'illustration' && (
               <>
                 <label htmlFor="speckles">近い色の小さな点を整理</label>
@@ -557,14 +548,8 @@ export default function Home() {
                   <NativeSelectOption value={1}>1目の点だけ</NativeSelectOption>
                   <NativeSelectOption value={2}>2目までの点</NativeSelectOption>
                 </NativeSelect>
-                <p>
-                  周囲に囲まれた近い色だけを統合します。色差の大きい点や、透明部分に接する点は統合対象から外します。
-                </p>
               </>
             )}
-            <p>
-              設定変更後は「この設定で図案を更新」を押してください。小さすぎる特徴は、目数を増やすと残しやすくなります。
-            </p>
           </div>
           <div className="setting">
             <label id="size-label">
@@ -582,10 +567,6 @@ export default function Home() {
               value={[width]}
               onValueChange={(v) => setWidth(Array.isArray(v) ? v[0] : v)}
             />
-            <div className="range-notes">
-              <span>ざっくり</span>
-              <span>こまかく</span>
-            </div>
           </div>
           <div className="setting">
             <label id="color-label">
@@ -602,10 +583,6 @@ export default function Home() {
               value={[colors]}
               onValueChange={(v) => setColors(Array.isArray(v) ? v[0] : v)}
             />
-            <div className="range-notes">
-              <span>シンプル</span>
-              <span>豊かな色合い</span>
-            </div>
           </div>
           <button
             className="primary full"
@@ -615,16 +592,8 @@ export default function Home() {
             この設定で図案を更新
             <ArrowRight size={16} />
           </button>
-          <p className="micro">
-            {sourceName || '画像を選ぶと、目数と色数を調整できます。'}
-            <br />
-            縦横比を保ち、最大120目に収めます。
-          </p>
           <section className="pdf-controls">
             <h3>PDFで保存</h3>
-            <p>
-              図案は拡大図と糸の凡例付き。運針は色ごとに分けて、全手順を出力します。
-            </p>
             <button
               className="outline full"
               disabled={pdfBusy}
@@ -668,7 +637,6 @@ export default function Home() {
             <h3>糸のパレット</h3>
             <span>DMC · {palette.length}色</span>
           </div>
-          <p className="micro">色を選んで、クリックやドラッグで塗れます。</p>
           <div className="palette">
             {palette.map((t, i) => (
               <button
@@ -697,7 +665,6 @@ export default function Home() {
           </div>
           <section className="merge-colors" aria-labelledby="merge-title">
             <h3 id="merge-title">似た色をまとめる</h3>
-            <p>例：少しだけ残った E を、A に置き換える。</p>
             <label htmlFor="merge-from">置き換える色</label>
             <NativeSelect
               id="merge-from"
@@ -764,9 +731,6 @@ export default function Home() {
             >
               {canMerge ? `${mergeCount}目をまとめる` : '色を選んでまとめる'}
             </button>
-            <p className="micro">
-              図案全体の該当色を置き換えます。統合後は記号を振り直し、運針は最初からになります。「一つ戻す」で取り消せます。
-            </p>
           </section>
           <details>
             <summary>ほかの糸色を追加</summary>
@@ -789,16 +753,6 @@ export default function Home() {
                 ))}
             </div>
           </details>
-          <p className="micro source-note">
-            DMCの実在する32色から選びます。表示色は近似値です。購入前に実物の色見本をご確認ください。
-            <a
-              href="https://www.dmc.com/GB/en-GB/products/embroidery-thread-shade-card-printed"
-              target="_blank"
-              rel="noreferrer"
-            >
-              DMC 色見本 ↗
-            </a>
-          </p>
         </aside>
         <section className="canvas-panel">
           <div className="canvas-toolbar">
