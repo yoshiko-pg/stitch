@@ -1,12 +1,6 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 import { useMemo, useState, useId } from 'react';
-import {
-  colorRuns,
-  optimizeColor,
-  threads,
-  type Pattern,
-  type RouteRun,
-} from '@/lib/stitch';
+import { colorRuns, threads, type Pattern, type RouteRun } from '@/lib/stitch';
 
 export function RouteOverview({ pattern }: { pattern: Pattern }) {
   const palette = useMemo(
@@ -17,11 +11,6 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
   const color = palette.find((t) => t.id === selected) || palette[0];
   const runs = useMemo(
     () => colorRuns(pattern, color?.id || ''),
-    [pattern, color?.id],
-  );
-  const [scale, setScale] = useState(1);
-  const optimization = useMemo(
-    () => optimizeColor(pattern, color?.id || ''),
     [pattern, color?.id],
   );
   const marker = useId().replace(/:/g, '');
@@ -55,50 +44,13 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
             区間1から番号順に
           </p>
         </div>
-        <div className="overview-zoom">
-          <button
-            aria-label="運針図を縮小"
-            disabled={scale <= 0.6}
-            onClick={() => setScale((s) => Math.max(0.6, s - 0.2))}
-          >
-            −
-          </button>
-          <span>{Math.round(scale * 100)}%</span>
-          <button
-            aria-label="運針図を拡大"
-            disabled={scale >= 2}
-            onClick={() => setScale((s) => Math.min(2, s + 0.2))}
-          >
-            ＋
-          </button>
-        </div>
-      </div>
-      <div className="optimization-summary">
-        <strong>
-          {optimization.exact
-            ? '区間の順番・方向：最適解'
-            : '区間の順番・方向：近似解'}
-        </strong>
-        <p>
-          糸の切断 {optimization.before.cuts} → {optimization.after.cuts} 回
-          <br />
-          裏糸の距離 {optimization.before.backLength.toFixed(1)} →{' '}
-          {optimization.after.backLength.toFixed(1)} 目分
-        </p>
-        <small>
-          切断回数を最優先し、次に裏糸の距離を最小化。
-          {optimization.exact
-            ? '10区間以下は全順序・左右の開始方向を動的計画法で探索。'
-            : '複数の開始候補から近傍探索。100区間を超える場合は分割して探索。最適性の保証はありません。'}{' '}
-          区間ごとに往復し、3目を超える移動で切る条件内の結果です。
-        </small>
       </div>
       <p className="overview-caption">
         区間の位置と順番 <span>青：下糸 ＼　橙：上糸 ／</span>
       </p>
       <div className="overview-map-scroll">
         <svg
-          width={Math.max(320, (pattern.width + 2) * 30) * scale}
+          width="100%"
           viewBox={`-1.5 -1.5 ${pattern.width + 3} ${pattern.height + 3}`}
           role="img"
           aria-label={`DMC ${color.id}の${runs.length}区間の位置。区間番号順に進みます。`}
@@ -284,11 +236,37 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
   );
 }
 function RunDiagram({ run, upper }: { run: RouteRun; upper: boolean }) {
-  const length = run.steps.length / 2;
-  const steps = upper ? run.steps.slice(length) : run.steps.slice(0, length);
+  const half = run.steps.length / 2;
+  const steps = upper ? run.steps.slice(half) : run.steps.slice(0, half);
+  return (
+    <>
+      {Array.from({ length: Math.ceil(steps.length / 8) }, (_, i) => (
+        <RunDiagramPart
+          key={i}
+          run={run}
+          upper={upper}
+          steps={steps.slice(i * 8, i * 8 + 8)}
+          continued={i > 0}
+        />
+      ))}
+    </>
+  );
+}
+function RunDiagramPart({
+  run,
+  upper,
+  steps,
+  continued,
+}: {
+  run: RouteRun;
+  upper: boolean;
+  steps: RouteRun['steps'];
+  continued: boolean;
+}) {
+  const length = steps.length;
   const left = run.steps[0].cell; // Coordinates below come from actual route holes, not reconstructed directions.
-  const minX = Math.min(...run.steps.flatMap((s) => [s.from[0], s.to[0]]));
-  const minY = Math.min(...run.steps.flatMap((s) => [s.from[1], s.to[1]]));
+  const minX = Math.min(...steps.flatMap((s) => [s.from[0], s.to[0]]));
+  const minY = Math.min(...steps.flatMap((s) => [s.from[1], s.to[1]]));
   const pitch = 76,
     pad = 32,
     w = length * pitch + pad * 2;
@@ -308,6 +286,7 @@ function RunDiagram({ run, upper }: { run: RouteRun; upper: boolean }) {
             ? '① 下糸 ＼ ← 左へ進む'
             : '① 下糸 ＼ → 右へ進む'}
       </h4>
+      {continued && <p>続き：前の図の番号から順に進みます。</p>}
       <div className="run-layer-scroll">
         <svg
           width={w}

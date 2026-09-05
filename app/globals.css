@@ -1111,8 +1111,8 @@ footer button {
   height: 30px;
 }
 .overview-map-scroll {
-  max-height: 470px;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
   background: #fafcf7;
   border: 1px solid #d7e0d1;
   border-radius: 8px;
@@ -1183,10 +1183,11 @@ footer button {
   margin: 0 0 10px;
 }
 .run-layer-scroll {
-  overflow: auto;
+  overflow: visible;
 }
 .run-layer-scroll svg {
-  max-width: none;
+  max-width: 100%;
+  height: auto;
   display: block;
 }
 .run-layer p,
@@ -1236,8 +1237,8 @@ footer button {
   padding: 30px;
 }
 .canvas-panel:has(.route-overview) {
-  max-height: 1100px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
 .workspace:has(.route-overview) {
   align-items: start;
@@ -1259,7 +1260,7 @@ footer button {
     overflow: visible;
   }
   .overview-map-scroll {
-    max-height: 400px;
+    max-height: none;
   }
   .run-list > li {
     padding: 12px;
@@ -1424,4 +1425,16 @@ footer button {
     order: -1;
     flex-basis: 100%;
   }
+}
+
+.overview-map-scroll svg {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.workspace:has(.route-overview) {
+  overflow: visible;
+}
+.route-overview {
+  padding-top: 16px;
 }
