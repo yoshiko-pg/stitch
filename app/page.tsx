@@ -51,6 +51,8 @@ export default function Home() {
   const [history, setHistory] = useState<Pattern[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfColor, setPdfColor] = useState('all');
   const [sourceName, setSourceName] = useState('');
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
@@ -241,6 +243,26 @@ export default function Home() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  async function exportPdf(kind: 'pattern' | 'route') {
+    setPdfBusy(true);
+    try {
+      const { createPatternPdf } = await import('@/lib/pdf-export');
+      const doc = await createPatternPdf(pattern, {
+        kind,
+        color:
+          pdfColor === 'all' || !palette.some((t) => t.id === pdfColor)
+            ? undefined
+            : pdfColor,
+        onProgress: (page) => setMessage(`PDFを作成中… ${page}ページ`),
+      });
+      doc.save(`ito-${kind}.pdf`);
+      setMessage('PDFを保存しました');
+    } catch {
+      setMessage('PDFを作成できませんでした。運針は色を絞ってお試しください。');
+    } finally {
+      setPdfBusy(false);
+    }
+  }
   function exportSvg() {
     const cell = 22,
       pad = 35;
@@ -347,9 +369,13 @@ export default function Home() {
         <span className="local-note">
           <span /> {saved ? 'この端末に自動保存' : '端末内で画像を処理'}
         </span>
-        <button className="outline" onClick={exportSvg}>
+        <button
+          className="outline"
+          disabled={pdfBusy}
+          onClick={() => void exportPdf('pattern')}
+        >
           <Download size={16} />
-          図案を保存
+          図案PDF
         </button>
       </header>
       <div className="intro">
@@ -448,6 +474,46 @@ export default function Home() {
             <br />
             縦横比を保ち、最大120目に収めます。
           </p>
+          <section className="pdf-controls">
+            <h3>PDFで保存</h3>
+            <p>
+              図案は拡大図と糸の凡例付き。運針は色ごとに分けて、全手順を出力します。
+            </p>
+            <button
+              className="outline full"
+              disabled={pdfBusy}
+              onClick={() => void exportPdf('pattern')}
+            >
+              図案PDFを保存
+            </button>
+            <label htmlFor="pdf-color">運針PDFに含める色</label>
+            <NativeSelect
+              id="pdf-color"
+              value={
+                pdfColor === 'all' || palette.some((t) => t.id === pdfColor)
+                  ? pdfColor
+                  : 'all'
+              }
+              onChange={(e) => setPdfColor(e.target.value)}
+            >
+              <NativeSelectOption value="all">すべての色</NativeSelectOption>
+              {palette.map((t, i) => (
+                <NativeSelectOption key={t.id} value={t.id}>
+                  {symbols[i]} · DMC {t.id}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <button
+              className="outline full"
+              disabled={pdfBusy || !palette.length}
+              onClick={() => void exportPdf('route')}
+            >
+              {pdfBusy ? 'PDFを作成中…' : '運針PDFを保存'}
+            </button>
+            <button className="text-button" onClick={exportSvg}>
+              図案SVGを保存
+            </button>
+          </section>
           <div className="divider" />
           <div className="palette-heading">
             <h3>糸のパレット</h3>
