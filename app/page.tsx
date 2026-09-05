@@ -31,6 +31,11 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select';
 import { threads, route, sample, quantize, type Pattern } from '@/lib/stitch';
+import {
+  representativePixels,
+  simplifySpeckles,
+  type ConversionMode,
+} from '@/lib/image-processing';
 const symbols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
 const labels = {
   start: 'ここからスタート',
@@ -44,6 +49,9 @@ export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
   const [colors, setColors] = useState(8);
+  const [conversionMode, setConversionMode] =
+    useState<ConversionMode>('illustration');
+  const [speckles, setSpeckles] = useState(0);
   const [view, setView] = useState('guide');
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
@@ -163,27 +171,57 @@ export default function Home() {
     setPattern(p);
     setStep(0);
   }
-  function convert(w = width, c = colors) {
-    const img = source.current;
-    if (!img) return;
-    const ratio = img.height / img.width;
+  function imagePattern(
+    img: HTMLImageElement,
+    name: string,
+    w = width,
+    count = colors,
+  ): Pattern {
+    const ratio = img.naturalHeight / img.naturalWidth;
     const h = Math.max(1, Math.min(120, Math.round(w * ratio)));
     const actualW = Math.max(1, Math.min(120, Math.round(h / ratio)));
     const canvas = document.createElement('canvas');
-    canvas.width = actualW;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0, actualW, h);
-    update(
-      quantize(
-        ctx.getImageData(0, 0, actualW, h).data,
+    let pixels: Uint8ClampedArray;
+    if (conversionMode === 'illustration') {
+      // Bound source readback memory; nearest sampling never blends source colours.
+      const scale = Math.min(
+        1,
+        2048 / Math.max(img.naturalWidth, img.naturalHeight),
+      );
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      pixels = representativePixels(
+        ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+        canvas.width,
+        canvas.height,
         actualW,
         h,
-        c,
-        sourceName || 'マイ図案',
-      ),
-    );
-    setMessage('図案を更新しました。運針は最初からになります。');
+      );
+    } else {
+      canvas.width = actualW;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = conversionMode === 'photo';
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, actualW, h);
+      pixels = ctx.getImageData(0, 0, actualW, h).data;
+    }
+    const result = quantize(pixels, actualW, h, count, name);
+    return conversionMode === 'illustration'
+      ? simplifySpeckles(result, speckles)
+      : result;
+  }
+  function convert(w = width, c = colors) {
+    if (!source.current) return;
+    try {
+      update(imagePattern(source.current, sourceName || 'マイ図案', w, c));
+      setMessage('図案を更新しました。運針は最初からになります。');
+    } catch {
+      setMessage('画像を処理できませんでした。小さい画像でお試しください。');
+    }
   }
   function load(file?: File) {
     if (!file) return;
@@ -202,28 +240,7 @@ export default function Home() {
       try {
         source.current = img;
         setSourceName(file.name);
-        const h = Math.max(
-          1,
-          Math.min(120, Math.round((width * img.height) / img.width)),
-        );
-        const w = Math.max(
-          1,
-          Math.min(120, Math.round((h * img.width) / img.height)),
-        );
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, w, h);
-        update(
-          quantize(
-            ctx.getImageData(0, 0, w, h).data,
-            w,
-            h,
-            colors,
-            file.name.replace(/\.[^.]+$/, ''),
-          ),
-        );
+        update(imagePattern(img, file.name.replace(/\.[^.]+$/, '')));
         setMessage('画像から図案を作りました');
         setView('pattern');
       } catch {
@@ -511,6 +528,57 @@ export default function Home() {
             <span>または、ここにドラッグ</span>
             <small>JPG / PNG / WebP・20MBまで</small>
           </button>
+          <div className="conversion-controls">
+            <label htmlFor="conversion-mode">画像の変換方法</label>
+            <NativeSelect
+              id="conversion-mode"
+              value={conversionMode}
+              onChange={(e) =>
+                setConversionMode(e.target.value as ConversionMode)
+              }
+              disabled={busy}
+            >
+              <NativeSelectOption value="illustration">
+                イラスト向け · 代表色でくっきり
+              </NativeSelectOption>
+              <NativeSelectOption value="pixel">
+                ドット絵向け · 色を混ぜない
+              </NativeSelectOption>
+              <NativeSelectOption value="photo">
+                写真向け · なめらか
+              </NativeSelectOption>
+            </NativeSelect>
+            <p>
+              {conversionMode === 'illustration'
+                ? '各マス内の代表色を選び、縮小で中間色を作りません。'
+                : conversionMode === 'pixel'
+                  ? '近くの1画素を選ぶ最近傍法です。既存のドット絵に向いています。'
+                  : '周囲の色を混ぜながら縮小し、階調をなめらかにします。'}
+            </p>
+            {conversionMode === 'illustration' && (
+              <>
+                <label htmlFor="speckles">近い色の小さな点を整理</label>
+                <NativeSelect
+                  id="speckles"
+                  value={speckles}
+                  onChange={(e) => setSpeckles(Number(e.target.value))}
+                  disabled={busy}
+                >
+                  <NativeSelectOption value={0}>
+                    しない（細部を残す）
+                  </NativeSelectOption>
+                  <NativeSelectOption value={1}>1目の点だけ</NativeSelectOption>
+                  <NativeSelectOption value={2}>2目までの点</NativeSelectOption>
+                </NativeSelect>
+                <p>
+                  周囲に囲まれた近い色だけを統合します。色差の大きい点や、透明部分に接する点は統合対象から外します。
+                </p>
+              </>
+            )}
+            <p>
+              設定変更後は「この設定で図案を更新」を押してください。小さすぎる特徴は、目数を増やすと残しやすくなります。
+            </p>
+          </div>
           <div className="setting">
             <label id="size-label">
               横の目数{' '}

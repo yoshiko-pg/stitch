@@ -424,3 +424,9 @@ export function colorRuns(pattern: Pattern, color: string): RouteRun[] {
     });
   return runs;
 }
+
+export function threadColorDistance(a: string, b: string): number {
+  const i = threads.findIndex((t) => t.id === a),
+    j = threads.findIndex((t) => t.id === b);
+  return i < 0 || j < 0 ? Infinity : Math.sqrt(dist(labs[i], labs[j]));
+}

@@ -1438,3 +1438,23 @@ footer button {
 .route-overview {
   padding-top: 16px;
 }
+.conversion-controls {
+  margin-top: 22px;
+}
+.conversion-controls label {
+  font-size: 14px;
+  display: block;
+  margin: 14px 0 8px;
+}
+.conversion-controls [data-slot='native-select-wrapper'] {
+  width: 100%;
+}
+.conversion-controls select {
+  height: 42px;
+  font-size: 13px;
+}
+.conversion-controls p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #687b61;
+}
