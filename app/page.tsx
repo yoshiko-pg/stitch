@@ -1071,6 +1071,7 @@ export default function Home() {
           )}
         </section>
       </main>
+      <PatternPreview pattern={pattern} cells={draftCells || pattern.cells} />
       <footer ref={footer}>
         <span>{saved ? 'この端末に自動保存' : '端末内で画像を処理'}</span>
         <output
@@ -1139,5 +1140,68 @@ export default function Home() {
         </label>
       </footer>
     </div>
+  );
+}
+
+function PatternPreview({
+  pattern,
+  cells,
+}: {
+  pattern: Pattern;
+  cells: Pattern['cells'];
+}) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [count, setCount] = useState(14);
+  useEffect(() => {
+    const target = canvas.current;
+    if (!target) return;
+    target.width = pattern.width;
+    target.height = pattern.height;
+    const ctx = target.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, target.width, target.height);
+    const colors = new Map(threads.map((t) => [t.id, t.hex]));
+    cells.forEach((color, i) => {
+      if (!color) return;
+      ctx.fillStyle = colors.get(color) || '#ffffff';
+      ctx.fillRect(i % pattern.width, Math.floor(i / pattern.width), 1, 1);
+    });
+  }, [cells, pattern.width, pattern.height]);
+  const cssWidth = (pattern.width / count) * 96,
+    cssHeight = (pattern.height / count) * 96;
+  const scale = Math.min(1, 180 / cssWidth, 150 / cssHeight);
+  return (
+    <details className="pattern-preview" open>
+      <summary>完成プレビュー</summary>
+      <div className="preview-content">
+        <div className="preview-image">
+          <canvas
+            ref={canvas}
+            role="img"
+            aria-label="記号やマス目のない完成プレビュー"
+            style={{ width: cssWidth * scale, height: cssHeight * scale }}
+          />
+        </div>
+        <div className="preview-size">
+          <label htmlFor="preview-count">布目</label>
+          <NativeSelect
+            id="preview-count"
+            value={count}
+            onChange={(e) => setCount(Number(e.target.value))}
+          >
+            {[11, 14, 16, 18].map((n) => (
+              <NativeSelectOption key={n} value={n}>
+                {n} ct
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+        <p title="1インチあたりの目数から計算した図案のサイズです。画面上の大きさは端末によって変わります。">
+          {((pattern.width / count) * 2.54).toFixed(1)} ×{' '}
+          {((pattern.height / count) * 2.54).toFixed(1)} cm{' '}
+          <span>{scale < 1 ? '縮小表示' : '実寸目安'}</span>
+        </p>
+      </div>
+    </details>
   );
 }
