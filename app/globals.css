@@ -1624,7 +1624,7 @@ footer button {
   display: block;
   max-width: 100%;
   object-fit: contain;
-  image-rendering: pixelated;
+  image-rendering: auto;
 }
 .preview-size {
   display: flex;

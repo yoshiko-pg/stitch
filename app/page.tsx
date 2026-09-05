@@ -1149,16 +1149,29 @@ function PatternPreview({
   useEffect(() => {
     const target = canvas.current;
     if (!target) return;
-    target.width = pattern.width;
-    target.height = pattern.height;
+    const cellSize = 12;
+    target.width = pattern.width * cellSize;
+    target.height = pattern.height * cellSize;
     const ctx = target.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, target.width, target.height);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
     const colors = new Map(threads.map((t) => [t.id, t.hex]));
     cells.forEach((color, i) => {
       if (!color) return;
-      ctx.fillStyle = colors.get(color) || '#ffffff';
-      ctx.fillRect(i % pattern.width, Math.floor(i / pattern.width), 1, 1);
+      const x = (i % pattern.width) * cellSize;
+      const y = Math.floor(i / pattern.width) * cellSize;
+      ctx.strokeStyle = colors.get(color) || '#ffffff';
+      // Lower backslash, then upper slash, matching the actual stitch order.
+      ctx.beginPath();
+      ctx.moveTo(x + 2, y + 2);
+      ctx.lineTo(x + 10, y + 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + 10, y + 2);
+      ctx.lineTo(x + 2, y + 10);
+      ctx.stroke();
     });
   }, [cells, pattern.width, pattern.height]);
   const cssWidth = (pattern.width / count) * 96,
@@ -1172,7 +1185,7 @@ function PatternPreview({
           <canvas
             ref={canvas}
             role="img"
-            aria-label="記号やマス目のない完成プレビュー"
+            aria-label="糸色のクロスステッチで表した完成プレビュー"
             style={{ width: cssWidth * scale, height: cssHeight * scale }}
           />
         </div>
