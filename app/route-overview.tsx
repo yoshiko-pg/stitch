@@ -1,6 +1,12 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 import { useMemo, useState, useId } from 'react';
-import { colorRuns, threads, type Pattern, type RouteRun } from '@/lib/stitch';
+import {
+  colorRuns,
+  optimizeColor,
+  threads,
+  type Pattern,
+  type RouteRun,
+} from '@/lib/stitch';
 
 export function RouteOverview({ pattern }: { pattern: Pattern }) {
   const palette = useMemo(
@@ -14,6 +20,10 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
     [pattern, color?.id],
   );
   const [scale, setScale] = useState(1);
+  const optimization = useMemo(
+    () => optimizeColor(pattern, color?.id || ''),
+    [pattern, color?.id],
+  );
   const marker = useId().replace(/:/g, '');
   if (!color)
     return (
@@ -63,8 +73,28 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
           </button>
         </div>
       </div>
+      <div className="optimization-summary">
+        <strong>
+          {optimization.exact
+            ? '区間の順番・方向：最適解'
+            : '区間の順番・方向：近似解'}
+        </strong>
+        <p>
+          糸の切断 {optimization.before.cuts} → {optimization.after.cuts} 回
+          <br />
+          裏糸の距離 {optimization.before.backLength.toFixed(1)} →{' '}
+          {optimization.after.backLength.toFixed(1)} 目分
+        </p>
+        <small>
+          切断回数を最優先し、次に裏糸の距離を最小化。
+          {optimization.exact
+            ? '10区間以下は全順序・左右の開始方向を動的計画法で探索。'
+            : '複数の開始候補から近傍探索。100区間を超える場合は分割して探索。最適性の保証はありません。'}{' '}
+          区間ごとに往復し、3目を超える移動で切る条件内の結果です。
+        </small>
+      </div>
       <p className="overview-caption">
-        区間の位置と順番 <span>青：下糸 ＼ →　橙：上糸 ／ ←</span>
+        区間の位置と順番 <span>青：下糸 ＼　橙：上糸 ／</span>
       </p>
       <div className="overview-map-scroll">
         <svg
@@ -127,9 +157,10 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
           )}
           {runs.map((run, i) => {
             const first = run.steps[0],
-              x = first.cell % pattern.width,
+              x = Math.min(...run.steps.map((s) => s.cell % pattern.width)),
               y = Math.floor(first.cell / pattern.width),
               length = run.steps.length / 2;
+            const reversed = isReversed(run);
             const prev = i ? runs[i - 1].steps.at(-1) : null;
             return (
               <g key={run.id}>
@@ -144,13 +175,21 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
                   />
                 )}
                 <path
-                  d={`M${x + 0.12} ${y + 0.2}H${x + length - 0.12}l-.16 -.09m.16 .09l-.16 .09`}
+                  d={
+                    reversed
+                      ? `M${x + length - 0.12} ${y + 0.2}H${x + 0.12}l.16 -.09m-.16 .09l.16 .09`
+                      : `M${x + 0.12} ${y + 0.2}H${x + length - 0.12}l-.16 -.09m.16 .09l-.16 .09`
+                  }
                   stroke="#2376a0"
                   strokeWidth=".07"
                   fill="none"
                 />
                 <path
-                  d={`M${x + length - 0.12} ${y + 0.8}H${x + 0.12}l.16 -.09m-.16 .09l.16 .09`}
+                  d={
+                    reversed
+                      ? `M${x + 0.12} ${y + 0.8}H${x + length - 0.12}l-.16 -.09m.16 .09l-.16 .09`
+                      : `M${x + length - 0.12} ${y + 0.8}H${x + 0.12}l.16 -.09m-.16 .09l.16 .09`
+                  }
                   stroke="#c86832"
                   strokeWidth=".07"
                   fill="none"
@@ -175,7 +214,12 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
                   {run.id}
                 </text>
                 {first.kind === 'cut' && (
-                  <text x={x - 0.4} y={y + 0.65} fontSize=".4" fill="#ad4827">
+                  <text
+                    x={reversed ? x + length + 0.1 : x - 0.4}
+                    y={y + 0.65}
+                    fontSize=".4"
+                    fill="#ad4827"
+                  >
                     ✂
                   </text>
                 )}
@@ -203,7 +247,7 @@ export function RouteOverview({ pattern }: { pattern: Pattern }) {
                 <strong>区間 {run.id}</strong>
                 <span>
                   {run.steps.length / 2}目 · {(first.cell % pattern.width) + 1}
-                  列目〜 / {Math.floor(first.cell / pattern.width) + 1}段目
+                  列目から / {Math.floor(first.cell / pattern.width) + 1}段目
                 </span>
               </div>
               <p
@@ -256,7 +300,13 @@ function RunDiagram({ run, upper }: { run: RouteRun; upper: boolean }) {
       data-cell={left}
     >
       <h4 style={{ color: tone }}>
-        {upper ? '② 上糸 ／ ← 左へ戻る' : '① 下糸 ＼ → 右へ進む'}
+        {upper
+          ? isReversed(run)
+            ? '② 上糸 ／ → 右へ戻る'
+            : '② 上糸 ／ ← 左へ戻る'
+          : isReversed(run)
+            ? '① 下糸 ＼ ← 左へ進む'
+            : '① 下糸 ＼ → 右へ進む'}
       </h4>
       <div className="run-layer-scroll">
         <svg
@@ -338,4 +388,9 @@ function RunDiagram({ run, upper }: { run: RouteRun; upper: boolean }) {
       </p>
     </section>
   );
+}
+
+function isReversed(run: RouteRun) {
+  const upper = run.steps[run.steps.length / 2];
+  return upper.from[0] < upper.to[0];
 }

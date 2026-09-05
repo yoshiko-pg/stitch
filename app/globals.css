@@ -1342,3 +1342,24 @@ footer button {
   font-size: 14px;
   font-weight: 500;
 }
+.optimization-summary {
+  padding: 14px 16px;
+  background: #e6eee1;
+  border: 1px solid #c9d8c1;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+.optimization-summary strong {
+  font-size: 14px;
+}
+.optimization-summary p {
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 8px 0;
+}
+.optimization-summary small {
+  display: block;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #62735b;
+}

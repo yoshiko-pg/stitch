@@ -31,9 +31,9 @@ import { threads, route, sample, quantize, type Pattern } from '@/lib/stitch';
 const symbols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
 const labels = {
   start: 'ここからスタート',
-  forward: '右へ進む',
+  forward: '下糸を刺して進む',
   turn: 'ここで折り返す',
-  return: '左へ戻る',
+  return: '上糸を刺して戻る',
   jump: '次の列・まとまりへ移動',
   cut: '糸を始末して、ここから再開',
 };
@@ -90,6 +90,7 @@ export default function Home() {
   useEffect(() => {
     try {
       const raw =
+        localStorage.getItem('ito-project-v3') ||
         localStorage.getItem('ito-project-v2') ||
         localStorage.getItem('ito-project-v1');
       if (raw) {
@@ -100,15 +101,15 @@ export default function Home() {
             Math.max(
               0,
               Math.min(
-                s.routeVersion === 2 ? Math.floor(Number(s.step)) || 0 : 0,
+                s.routeVersion === 3 ? Math.floor(Number(s.step)) || 0 : 0,
                 route(s.pattern).length,
               ),
             ),
           );
           setMessage(
-            s.routeVersion === 2
+            s.routeVersion === 3
               ? '前回の図案と進み具合を復元しました'
-              : '図案を復元しました。下糸の向きを変更したため、運針は最初からになります。',
+              : '図案を復元しました。運針を最適化したため、運針は最初からになります。',
           );
         }
       }
@@ -121,8 +122,8 @@ export default function Home() {
     if (!ready) return;
     try {
       localStorage.setItem(
-        'ito-project-v2',
-        JSON.stringify({ pattern, step, routeVersion: 2 }),
+        'ito-project-v3',
+        JSON.stringify({ pattern, step, routeVersion: 3 }),
       );
       setSaved(true);
     } catch {
@@ -925,7 +926,7 @@ export default function Home() {
                         : current.kind === 'jump'
                           ? `前の穴から裏側を約${current.travel.toFixed(1)}目分移動します。糸を強く引きすぎないで。`
                           : current.kind === 'turn'
-                            ? '右端まで来ました。上に重なる「／」を刺して、左へ戻ります。'
+                            ? '区間の端まで来ました。上に重なる「／」を刺して戻ります。出す穴と入れる穴を確認してください。'
                             : current.kind === 'start'
                               ? step > 0
                                 ? '前の色の糸を裏で始末します。新しい色の糸を固定して、緑の穴から出します。'
@@ -986,8 +987,8 @@ export default function Home() {
               <details className="route-rules">
                 <summary>運針の基本パターン</summary>
                 <p>
-                  ① 下糸「＼」を右へ刺す
-                  <br />② 上糸「／」で左へ戻る
+                  ① 下糸「＼」を矢印の方向へ刺す
+                  <br />② 上糸「／」で折り返す
                   <br />③ 次のまとまりへ裏側を移動
                   <br />④ 3目を超える移動は糸を切って再開
                 </p>
@@ -1020,7 +1021,7 @@ export default function Home() {
         <button
           onClick={() =>
             download(
-              JSON.stringify({ pattern, step, routeVersion: 2 }),
+              JSON.stringify({ pattern, step, routeVersion: 3 }),
               'ito-project.json',
               'application/json',
             )
@@ -1049,7 +1050,7 @@ export default function Home() {
                   Math.max(
                     0,
                     Math.min(
-                      s.routeVersion === 2
+                      s.routeVersion === 3
                         ? Math.floor(Number(s.step)) || 0
                         : 0,
                       route(s.pattern).length,
@@ -1162,19 +1163,19 @@ function OverviewHelp() {
           図の <b>区間1</b> から始める
         </li>
         <li>
-          下糸 <b>＼</b> を右へ刺す
+          下糸 <b>＼</b> を矢印の方向へ刺す
         </li>
         <li>
-          右端で折り返し、上糸 <b>／</b> で左へ戻る
+          区間の端で折り返し、上糸 <b>／</b> で戻る
         </li>
         <li>移動の案内を確認して次の区間へ</li>
       </ol>
       <div className="route-key">
         <p>
-          <span className="lower-key">青い線</span> 下糸・往路 →
+          <span className="lower-key">青い線</span> 下糸・往路
         </p>
         <p>
-          <span className="upper-key">橙の線</span> 上糸・復路 ←
+          <span className="upper-key">橙の線</span> 上糸・復路
         </p>
         <p>点線：裏側の移動</p>
         <p>✂：糸を始末して再開</p>

@@ -49,7 +49,7 @@ export type Stitch = {
   kind: 'start' | 'forward' | 'turn' | 'return' | 'jump' | 'cut';
   travel: number;
 };
-export function route(p: Pattern): Stitch[] {
+export function baselineRoute(p: Pattern): Stitch[] {
   const result: Stitch[] = [];
   for (const color of [...new Set(p.cells.filter(Boolean))] as string[]) {
     let previous: Point | undefined;
@@ -96,6 +96,227 @@ export function route(p: Pattern): Stitch[] {
       }
   }
   return result;
+}
+type Variant = Stitch[];
+const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+function variants(p: Pattern, color: string): Variant[] {
+  const groups: Stitch[][] = [];
+  for (const s of baselineRoute(p).filter((s) => s.color === color)) {
+    if (['start', 'jump', 'cut'].includes(s.kind)) groups.push([]);
+    groups.at(-1)!.push(s);
+  }
+  return groups.flatMap((group) => {
+    const cells = group.slice(0, group.length / 2).map((s) => s.cell);
+    return [false, true].map((reverse) => {
+      const ordered = reverse ? [...cells].reverse() : cells;
+      const result: Stitch[] = [];
+      for (const upper of [false, true])
+        for (const cell of upper ? [...ordered].reverse() : ordered) {
+          const x = cell % p.width,
+            y = Math.floor(cell / p.width);
+          let from: Point = upper ? [x + 1, y] : [x, y];
+          let to: Point = upper ? [x, y + 1] : [x + 1, y + 1];
+          if (reverse) [from, to] = [to, from];
+          result.push({
+            cell,
+            color,
+            from,
+            to,
+            kind:
+              result.length === 0
+                ? 'start'
+                : upper
+                  ? result.length === cells.length
+                    ? 'turn'
+                    : 'return'
+                  : 'forward',
+            travel: 0,
+          });
+        }
+      return result;
+    });
+  });
+}
+function enter(v: Variant, previous?: Point): Stitch[] {
+  const copy = v.map((s) => ({ ...s }));
+  if (previous && distance(previous, copy[0].from) === 0)
+    [copy[0].from, copy[0].to] = [copy[0].to, copy[0].from];
+  copy.forEach((s, i) => {
+    const prev = i ? copy[i - 1].to : previous;
+    s.travel = prev ? distance(prev, s.from) : 0;
+    if (!i) s.kind = !prev ? 'start' : s.travel > 3 ? 'cut' : 'jump';
+  });
+  return copy;
+}
+export function routeMetrics(steps: Stitch[]) {
+  return {
+    cuts: steps.filter((s) => s.kind === 'cut').length,
+    backLength: steps.reduce(
+      (sum, s) => sum + (['cut', 'start'].includes(s.kind) ? 0 : s.travel),
+      0,
+    ),
+  };
+}
+// Lexicographic objective: cuts first, then actual back-thread length (cut gaps excluded).
+// This weight exceeds the maximum possible back-thread length of a 120×120 pattern.
+const CUT_WEIGHT = 1_000_000;
+function score(steps: Stitch[]) {
+  const m = routeMetrics(steps);
+  return m.cuts * CUT_WEIGHT + m.backLength;
+}
+export type Optimization = {
+  steps: Stitch[];
+  before: ReturnType<typeof routeMetrics>;
+  after: ReturnType<typeof routeMetrics>;
+  exact: boolean;
+  runs: number;
+};
+const optimizationCache = new WeakMap<Pattern, Map<string, Optimization>>();
+export function optimizeColor(p: Pattern, color: string): Optimization {
+  let cache = optimizationCache.get(p);
+  if (!cache) {
+    cache = new Map();
+    optimizationCache.set(p, cache);
+  }
+  const cached = cache.get(color);
+  if (cached) return cached;
+  const vs = variants(p, color),
+    n = vs.length / 2;
+  const base = baselineRoute(p).filter((s) => s.color === color);
+  if (!n) {
+    const empty = {
+      steps: [],
+      before: routeMetrics([]),
+      after: routeMetrics([]),
+      exact: true,
+      runs: 0,
+    };
+    cache.set(color, empty);
+    return empty;
+  }
+  const internal = vs.map((v) => score(enter(v)));
+  const edge = (a: number, b: number) => {
+    const v = vs[b],
+      previous = vs[a].at(-1)!.to;
+    let from = v[0].from,
+      to = v[0].to;
+    if (distance(previous, from) === 0) [from, to] = [to, from];
+    const gap = distance(previous, from);
+    const delta = distance(to, v[1].from) - distance(v[0].to, v[1].from);
+    return internal[b] + delta + (gap > 3 ? CUT_WEIGHT : gap);
+  };
+  const pathCost = (path: number[]) =>
+    path.reduce(
+      (sum, id, i) => sum + (i ? edge(path[i - 1], id) : internal[id]),
+      0,
+    );
+  let order = Array.from({ length: n }, (_, i) => i * 2);
+  if (n <= 10) {
+    // Held–Karp on (visited run subset, last run, last orientation), open path.
+    const width = 2 * n,
+      size = (1 << n) * width;
+    const dp = new Float64Array(size);
+    dp.fill(Infinity);
+    const parents = new Int16Array(size);
+    parents.fill(-1);
+    for (let v = 0; v < width; v++)
+      dp[(1 << (v >> 1)) * width + v] = internal[v];
+    for (let mask = 1; mask < 1 << n; mask++)
+      for (let a = 0; a < width; a++) {
+        const cost = dp[mask * width + a];
+        if (!Number.isFinite(cost)) continue;
+        for (let b = 0; b < width; b++) {
+          const bit = 1 << (b >> 1);
+          if (mask & bit) continue;
+          const idx = (mask | bit) * width + b,
+            next = cost + edge(a, b);
+          if (next < dp[idx]) {
+            dp[idx] = next;
+            parents[idx] = a;
+          }
+        }
+      }
+    let mask = (1 << n) - 1,
+      last = 0;
+    for (let v = 1; v < width; v++)
+      if (dp[mask * width + v] < dp[mask * width + last]) last = v;
+    order = [];
+    while (mask) {
+      order.push(last);
+      const prev = parents[mask * width + last];
+      mask ^= 1 << (last >> 1);
+      last = prev;
+    }
+    order.reverse();
+  } else {
+    // Bound work for large images: optimize batches of at most 100 nearby raster runs.
+    // Retain the complete baseline unless the final objective improves.
+    const proposed: number[] = [];
+    for (let offset = 0; offset < n; offset += 100) {
+      const count = Math.min(100, n - offset),
+        seeds = Math.min(count * 2, 12);
+      let best: number[] = [];
+      let bestCost = Infinity;
+      for (let seed = 0; seed < seeds; seed++) {
+        const path = [offset * 2 + Math.floor((seed / seeds) * count * 2)];
+        const visited = new Set([path[0] >> 1]);
+        while (path.length < count) {
+          let next = -1,
+            value = Infinity;
+          for (let b = offset * 2; b < (offset + count) * 2; b++)
+            if (!visited.has(b >> 1)) {
+              const cost = edge(path.at(-1)!, b);
+              if (cost < value) {
+                value = cost;
+                next = b;
+              }
+            }
+          path.push(next);
+          visited.add(next >> 1);
+        }
+        // Bounded orientation local search.
+        for (let pass = 0; pass < 2; pass++)
+          for (let i = 0; i < path.length; i++) {
+            const old = pathCost(path);
+            path[i] ^= 1;
+            if (pathCost(path) > old) path[i] ^= 1;
+          }
+        const cost =
+          pathCost(path) +
+          (proposed.length
+            ? edge(proposed.at(-1)!, path[0]) - internal[path[0]]
+            : 0);
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = path;
+        }
+      }
+      proposed.push(...best);
+    }
+    if (pathCost(proposed) < pathCost(order)) order = proposed;
+  }
+  let previous: Point | undefined;
+  let steps = order.flatMap((id) => {
+    const s = enter(vs[id], previous);
+    previous = s.at(-1)!.to;
+    return s;
+  });
+  // Numerical tie handling preserves the familiar ordering when it is equally good.
+  if (score(base) <= score(steps) + 1e-8) steps = base;
+  const result = {
+    steps,
+    before: routeMetrics(base),
+    after: routeMetrics(steps),
+    exact: n <= 10,
+    runs: n,
+  };
+  cache.set(color, result);
+  return result;
+}
+export function route(p: Pattern): Stitch[] {
+  return ([...new Set(p.cells.filter(Boolean))] as string[]).flatMap(
+    (c) => optimizeColor(p, c).steps,
+  );
 }
 const rgb = (hex: string) =>
   [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));

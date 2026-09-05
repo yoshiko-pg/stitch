@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { route, quantize, sample, threads, colorRuns } from '../lib/stitch.ts';
+import {
+  route,
+  quantize,
+  sample,
+  threads,
+  colorRuns,
+  optimizeColor,
+} from '../lib/stitch.ts';
 function verify(p) {
   const steps = route(p);
   assert.equal(steps.length, p.cells.filter(Boolean).length * 2);
@@ -159,4 +166,140 @@ test('overview groups share exact guide coordinates and continuous numbering', (
     }
   }
   assert.deepEqual(colorRuns(p, 'not-a-thread'), []);
+});
+
+// Independent exhaustive oracle: enumerate every run order and both directions.
+function bruteCost(p) {
+  const groups = [];
+  for (let y = 0; y < p.height; y++)
+    for (let x = 0; x < p.width; x++) {
+      if (!p.cells[y * p.width + x]) continue;
+      const cells = [];
+      while (x < p.width && p.cells[y * p.width + x]) {
+        cells.push(y * p.width + x);
+        x++;
+      }
+      x--;
+      groups.push(cells);
+    }
+  let best = Infinity;
+  function search(remaining, previous, cost) {
+    if (!remaining.length) {
+      best = Math.min(best, cost);
+      return;
+    }
+    for (const id of remaining)
+      for (const reverse of [false, true]) {
+        const cells = reverse ? [...groups[id]].reverse() : groups[id];
+        const stitches = [];
+        for (const upper of [false, true])
+          for (const cell of upper ? [...cells].reverse() : cells) {
+            const x = cell % p.width,
+              y = Math.floor(cell / p.width);
+            let a = upper ? [x + 1, y] : [x, y],
+              b = upper ? [x, y + 1] : [x + 1, y + 1];
+            if (reverse) [a, b] = [b, a];
+            stitches.push([a, b]);
+          }
+        let prev = previous,
+          total = cost;
+        stitches.forEach(([a, b], i) => {
+          if (!i && prev && a[0] === prev[0] && a[1] === prev[1])
+            [a, b] = [b, a];
+          if (prev) {
+            const d = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
+            total += !i && d > 3 ? 1e6 : d;
+          }
+          prev = b;
+        });
+        search(
+          remaining.filter((v) => v !== id),
+          prev,
+          total,
+        );
+      }
+  }
+  search(
+    groups.map((_, i) => i),
+    null,
+    0,
+  );
+  return best;
+}
+test('exact DP agrees with exhaustive permutations and directions', () => {
+  for (const cells of [
+    [
+      '321',
+      '321',
+      null,
+      null,
+      '321',
+      null,
+      null,
+      '321',
+      null,
+      null,
+      '321',
+      '321',
+    ],
+    [
+      '321',
+      null,
+      '321',
+      null,
+      null,
+      '321',
+      null,
+      null,
+      '321',
+      null,
+      null,
+      null,
+    ],
+  ]) {
+    const p = { width: 6, height: 2, cells, name: 'oracle' };
+    const result = optimizeColor(p, '321');
+    assert.equal(result.exact, true);
+    assert.ok(
+      Math.abs(
+        result.after.cuts * 1e6 + result.after.backLength - bruteCost(p),
+      ) < 1e-6,
+    );
+    verify(p);
+  }
+});
+test('heuristic connects nearby regions and never worsens the baseline', () => {
+  const p = {
+    width: 14,
+    height: 6,
+    name: 'two columns',
+    cells: Array.from({ length: 84 }, (_, i) =>
+      [0, 1, 10, 11].includes(i % 14) ? '321' : null,
+    ),
+  };
+  const result = optimizeColor(p, '321');
+  assert.equal(result.exact, false);
+  assert.ok(result.after.cuts < result.before.cuts);
+  assert.ok(
+    result.after.cuts * 1e6 + result.after.backLength <=
+      result.before.cuts * 1e6 + result.before.backLength + 1e-6,
+  );
+  verify(p);
+});
+test('bounded large-image search preserves every stitch and objective', () => {
+  const p = {
+    width: 32,
+    height: 20,
+    name: 'many islands',
+    cells: Array.from({ length: 640 }, (_, i) =>
+      (i % 32) % 3 === 0 ? '321' : null,
+    ),
+  };
+  const result = optimizeColor(p, '321');
+  assert.equal(result.exact, false);
+  assert.ok(
+    result.after.cuts * 1e6 + result.after.backLength <=
+      result.before.cuts * 1e6 + result.before.backLength + 1e-6,
+  );
+  verify(p);
 });
