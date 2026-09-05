@@ -1538,3 +1538,49 @@ footer button {
   border-top: 0;
   border-bottom: 1px solid #dce3dc;
 }
+
+.canvas-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.edit-tools {
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 10px;
+}
+.paint-color-label {
+  font-size: 14px;
+  white-space: nowrap;
+}
+.edit-tools .paint-swatch {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid #b8c4b2;
+  flex-shrink: 0;
+}
+.paint-color-select {
+  width: 210px;
+  max-width: 100%;
+  min-width: 0;
+}
+.canvas-actions .symbol-toggle {
+  padding: 8px 10px;
+  border: 1px solid #d4ddce;
+}
+.canvas-actions .symbol-toggle.on {
+  background: #e8ede1;
+  color: #3f5c3c;
+}
+.canvas-actions .zoom-tools {
+  margin-left: auto;
+}
+@media (max-width: 650px) {
+  .edit-tools {
+    gap: 8px;
+  }
+  .paint-color-select {
+    width: 170px;
+  }
+}

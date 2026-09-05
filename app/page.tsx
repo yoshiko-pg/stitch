@@ -20,7 +20,6 @@ import {
   ZoomIn,
   ZoomOut,
   Undo2,
-  Eraser,
   Save,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -768,15 +767,6 @@ export default function Home() {
                 <TabsTrigger value="step">ひと針ずつ</TabsTrigger>
               </TabsList>
             </Tabs>
-            {view !== 'guide' && (
-              <button
-                className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
-                aria-pressed={showSymbols}
-                onClick={() => setShowSymbols(!showSymbols)}
-              >
-                A 記号
-              </button>
-            )}
           </div>
           {view === 'guide' ? (
             <RouteOverview pattern={pattern} />
@@ -785,22 +775,46 @@ export default function Home() {
               <div className="canvas-actions">
                 <div className="edit-tools">
                   <button
-                    aria-label="選択を解除"
-                    className={paint === undefined ? 'active' : ''}
-                    onClick={() => setPaint(undefined)}
+                    className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
+                    aria-pressed={showSymbols}
+                    onClick={() => setShowSymbols(!showSymbols)}
                   >
-                    <Grid2X2 size={17} />
+                    A 記号
                   </button>
-                  <button
-                    aria-label="消しゴム"
-                    className={paint === null ? 'active' : ''}
-                    onClick={() => {
-                      setPaint(null);
+                  <label className="paint-color-label" htmlFor="paint-color">
+                    塗る色
+                  </label>
+                  <span
+                    className="paint-swatch"
+                    aria-hidden="true"
+                    style={{
+                      background:
+                        threads.find((t) => t.id === paint)?.hex ||
+                        'transparent',
+                    }}
+                  />
+                  <NativeSelect
+                    id="paint-color"
+                    className="paint-color-select"
+                    value={paint || ''}
+                    onChange={(e) => {
+                      setPaint(e.target.value || undefined);
                       setView('pattern');
                     }}
                   >
-                    <Eraser size={17} />
-                  </button>
+                    <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
+                    {[
+                      ...palette,
+                      ...threads.filter((t) => !palette.includes(t)),
+                    ].map((t) => (
+                      <NativeSelectOption key={t.id} value={t.id}>
+                        {palette.includes(t)
+                          ? symbols[palette.indexOf(t)] + ' · '
+                          : ''}
+                        DMC {t.id} · {t.name}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
                   <button
                     aria-label="一つ戻す"
                     disabled={!history.length}
@@ -812,13 +826,6 @@ export default function Home() {
                   >
                     <Undo2 size={17} />
                   </button>
-                  <span>
-                    {paint === null
-                      ? 'ドラッグで消す'
-                      : paint
-                        ? 'DMC ' + paint + ' でドラッグして塗る'
-                        : '色を選ぶと編集できます'}
-                  </span>
                 </div>
                 <div className="zoom-tools">
                   <button
