@@ -23,6 +23,10 @@ import {
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import { threads, route, sample, quantize, type Pattern } from '@/lib/stitch';
 const symbols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
 const labels = {
@@ -42,6 +46,8 @@ export default function Home() {
   const [zoom, setZoom] = useState(1);
   const [step, setStep] = useState(0);
   const [paint, setPaint] = useState<string | null | undefined>();
+  const [mergeFrom, setMergeFrom] = useState('');
+  const [mergeTo, setMergeTo] = useState('');
   const [history, setHistory] = useState<Pattern[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -57,6 +63,28 @@ export default function Home() {
     () => threads.filter((t) => pattern.cells.includes(t.id)),
     [pattern],
   );
+  const mergeSource = palette.find((t) => t.id === mergeFrom);
+  const mergeTarget = palette.find((t) => t.id === mergeTo);
+  const mergeCount = mergeSource
+    ? pattern.cells.filter((c) => c === mergeSource.id).length
+    : 0;
+  const canMerge =
+    !!mergeSource && !!mergeTarget && mergeSource.id !== mergeTarget.id;
+  function mergeColors() {
+    if (!canMerge || !mergeSource || !mergeTarget) return;
+    update({
+      ...pattern,
+      cells: pattern.cells.map((c) =>
+        c === mergeSource.id ? mergeTarget.id : c,
+      ),
+    });
+    setPaint(mergeTarget.id);
+    setMergeFrom('');
+    setView('pattern');
+    setMessage(
+      `DMC ${mergeSource.id} の ${mergeCount}目を DMC ${mergeTarget.id} にまとめました。「一つ戻す」で取り消せます。運針は最初からになります。`,
+    );
+  }
   const stitched = pattern.cells.filter(Boolean).length;
   const active = threads.find((t) => t.id === current?.color);
   useEffect(() => {
@@ -451,6 +479,79 @@ export default function Home() {
               </button>
             ))}
           </div>
+          <section className="merge-colors" aria-labelledby="merge-title">
+            <h3 id="merge-title">似た色をまとめる</h3>
+            <p>例：少しだけ残った E を、A に置き換える。</p>
+            <label htmlFor="merge-from">置き換える色</label>
+            <NativeSelect
+              id="merge-from"
+              value={mergeSource?.id || ''}
+              disabled={palette.length < 2}
+              onChange={(e) => {
+                setMergeFrom(e.target.value);
+                setView('pattern');
+                setPaint(undefined);
+              }}
+            >
+              <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
+              {palette.map((t, i) => (
+                <NativeSelectOption key={t.id} value={t.id}>
+                  {symbols[i]} · DMC {t.id} ·{' '}
+                  {pattern.cells.filter((c) => c === t.id).length}目
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <label htmlFor="merge-to">残す色</label>
+            <NativeSelect
+              id="merge-to"
+              value={mergeTarget?.id || ''}
+              disabled={palette.length < 2}
+              onChange={(e) => setMergeTo(e.target.value)}
+            >
+              <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
+              {palette.map((t, i) => (
+                <NativeSelectOption
+                  key={t.id}
+                  value={t.id}
+                  disabled={t.id === mergeSource?.id}
+                >
+                  {symbols[i]} · DMC {t.id} · {t.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            {canMerge && (
+              <div className="merge-preview">
+                <span
+                  style={{
+                    background: mergeSource!.hex,
+                    color: ink(mergeSource!.hex),
+                  }}
+                >
+                  {symbols[palette.indexOf(mergeSource!)]}
+                </span>
+                <ArrowRight size={16} />
+                <span
+                  style={{
+                    background: mergeTarget!.hex,
+                    color: ink(mergeTarget!.hex),
+                  }}
+                >
+                  {symbols[palette.indexOf(mergeTarget!)]}
+                </span>
+                <strong>{mergeCount}目</strong>
+              </div>
+            )}
+            <button
+              className="primary full"
+              disabled={!canMerge}
+              onClick={mergeColors}
+            >
+              {canMerge ? `${mergeCount}目をまとめる` : '色を選んでまとめる'}
+            </button>
+            <p className="micro">
+              図案全体の該当色を置き換えます。統合後は記号を振り直し、運針は最初からになります。「一つ戻す」で取り消せます。
+            </p>
+          </section>
           <details>
             <summary>ほかの糸色を追加</summary>
             <div className="extra-palette">
@@ -643,6 +744,23 @@ export default function Home() {
                         </text>
                       ),
                     )}
+                    {view === 'pattern' &&
+                      mergeSource &&
+                      pattern.cells.map((c, i) =>
+                        c === mergeSource.id ? (
+                          <rect
+                            key={'merge-' + i}
+                            x={(i % pattern.width) + 0.07}
+                            y={Math.floor(i / pattern.width) + 0.07}
+                            width={0.86}
+                            height={0.86}
+                            fill="none"
+                            stroke="#d05f22"
+                            strokeWidth=".12"
+                            pointerEvents="none"
+                          />
+                        ) : null,
+                      )}
                     {view === 'step' && current && step < sequence.length && (
                       <g pointerEvents="none">
                         <rect
