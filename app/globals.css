@@ -1458,3 +1458,12 @@ footer button {
   line-height: 1.8;
   color: #687b61;
 }
+
+.app-shell {
+  padding-top: 20px;
+}
+@media (max-width: 650px) {
+  .app-shell {
+    padding-top: 10px;
+  }
+}

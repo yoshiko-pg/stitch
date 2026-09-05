@@ -15,7 +15,6 @@ import {
   Upload,
   ArrowRight,
   ArrowLeft,
-  Download,
   Grid2X2,
   Route,
   ZoomIn,
@@ -469,34 +468,6 @@ export default function Home() {
   }, [pattern, step, current, sequence.length]);
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="./" aria-label="ito ホーム">
-          ito<span className="brand-stitch">×</span>
-        </a>
-        <span className="brand-sub">クロスステッチ図案室</span>
-        <span className="local-note">
-          <span /> {saved ? 'この端末に自動保存' : '端末内で画像を処理'}
-        </span>
-        <button
-          className="outline"
-          disabled={pdfBusy}
-          onClick={() => void exportPdf('pattern')}
-        >
-          <Download size={16} />
-          図案PDF
-        </button>
-      </header>
-      <div className="intro">
-        <div>
-          <div className="eyebrow">YOUR IMAGE, ONE STITCH AT A TIME</div>
-          <h1>ひと針ずつ、かたちに。</h1>
-        </div>
-        <p>
-          好きな画像を、あなたの図案へ。
-          <br />
-          針の道すじも、一緒に。
-        </p>
-      </div>
       <main className="workspace">
         <aside className="settings">
           <div className="panel-heading">
@@ -1138,6 +1109,7 @@ export default function Home() {
         </section>
       </main>
       <footer>
+        <span>{saved ? 'この端末に自動保存' : '端末内で画像を処理'}</span>
         <output className="status">
           {message || 'まずはサンプルで、針の道すじを試してみてください。'}
         </output>
