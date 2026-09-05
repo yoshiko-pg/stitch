@@ -292,7 +292,7 @@ h1 {
   border: 1px solid #dce3dc;
   border-radius: 12px;
   background: white;
-  overflow: hidden;
+  overflow: visible;
   min-height: 790px;
   box-shadow: 0 8px 35px #30483704;
 }
@@ -1465,5 +1465,27 @@ footer button {
 @media (max-width: 650px) {
   .app-shell {
     padding-top: 10px;
+  }
+}
+
+.settings {
+  min-height: 0;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+@media (min-width: 651px) {
+  .settings {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+  }
+}
+@media (max-width: 650px) {
+  .settings {
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
   }
 }

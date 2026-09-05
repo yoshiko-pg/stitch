@@ -469,7 +469,7 @@ export default function Home() {
   return (
     <div className="app-shell">
       <main className="workspace">
-        <aside className="settings">
+        <aside className="settings" aria-label="図案の設定">
           <div className="panel-heading">
             <h2>図案をつくる</h2>
           </div>
