@@ -137,13 +137,13 @@ export default function Home() {
             Math.max(
               0,
               Math.min(
-                s.routeVersion === 3 ? Math.floor(Number(s.step)) || 0 : 0,
+                s.routeVersion === 4 ? Math.floor(Number(s.step)) || 0 : 0,
                 route(s.pattern).length,
               ),
             ),
           );
           setMessage(
-            s.routeVersion === 3
+            s.routeVersion === 4
               ? '前回の図案と進み具合を復元しました'
               : '図案を復元しました。運針を最適化したため、運針は最初からになります。',
           );
@@ -159,7 +159,7 @@ export default function Home() {
     try {
       localStorage.setItem(
         'ito-project-v3',
-        JSON.stringify({ pattern, step, routeVersion: 3 }),
+        JSON.stringify({ pattern, step, routeVersion: 4 }),
       );
       setSaved(true);
     } catch {
@@ -1073,7 +1073,7 @@ export default function Home() {
         <button
           onClick={() =>
             download(
-              JSON.stringify({ pattern, step, routeVersion: 3 }),
+              JSON.stringify({ pattern, step, routeVersion: 4 }),
               'ito-project.json',
               'application/json',
             )
@@ -1102,7 +1102,7 @@ export default function Home() {
                   Math.max(
                     0,
                     Math.min(
-                      s.routeVersion === 3
+                      s.routeVersion === 4
                         ? Math.floor(Number(s.step)) || 0
                         : 0,
                       route(s.pattern).length,

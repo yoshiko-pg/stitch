@@ -168,8 +168,8 @@ test('overview groups share exact guide coordinates and continuous numbering', (
   assert.deepEqual(colorRuns(p, 'not-a-thread'), []);
 });
 
-// Independent exhaustive oracle: enumerate every run order and both directions.
-function bruteCost(p) {
+// Independent exhaustive oracle: enumerate directions for a specified run order.
+function bruteCost(p, runOrder) {
   const groups = [];
   for (let y = 0; y < p.height; y++)
     for (let x = 0; x < p.width; x++) {
@@ -188,46 +188,41 @@ function bruteCost(p) {
       best = Math.min(best, cost);
       return;
     }
-    for (const id of remaining)
-      for (const reverse of [false, true]) {
-        const cells = reverse ? [...groups[id]].reverse() : groups[id];
-        const stitches = [];
-        for (const upper of [false, true])
-          for (const cell of upper ? [...cells].reverse() : cells) {
-            const x = cell % p.width,
-              y = Math.floor(cell / p.width);
-            let a = upper ? [x + 1, y] : [x, y],
-              b = upper ? [x, y + 1] : [x + 1, y + 1];
-            if (reverse) [a, b] = [b, a];
-            stitches.push([a, b]);
-          }
-        let prev = previous,
-          total = cost;
-        stitches.forEach(([a, b], i) => {
-          if (!i && prev && a[0] === prev[0] && a[1] === prev[1])
-            [a, b] = [b, a];
-          if (prev) {
-            const d = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
-            total += !i && d > 3 ? 1e6 : d;
-          }
-          prev = b;
-        });
-        search(
-          remaining.filter((v) => v !== id),
-          prev,
-          total,
-        );
-      }
+    const id = remaining[0];
+    for (const reverse of [false, true]) {
+      const cells = reverse ? [...groups[id]].reverse() : groups[id];
+      const stitches = [];
+      for (const upper of [false, true])
+        for (const cell of upper ? [...cells].reverse() : cells) {
+          const x = cell % p.width,
+            y = Math.floor(cell / p.width);
+          let a = upper ? [x + 1, y] : [x, y],
+            b = upper ? [x, y + 1] : [x + 1, y + 1];
+          if (reverse) [a, b] = [b, a];
+          stitches.push([a, b]);
+        }
+      let prev = previous,
+        total = cost;
+      stitches.forEach(([a, b], i) => {
+        if (!i && prev && a[0] === prev[0] && a[1] === prev[1]) [a, b] = [b, a];
+        if (prev) {
+          const d = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
+          total += !i && d > 3 ? 1e6 : d;
+        }
+        prev = b;
+      });
+      search(
+        remaining.filter((v) => v !== id),
+        prev,
+        total,
+      );
+    }
   }
-  search(
-    groups.map((_, i) => i),
-    null,
-    0,
-  );
+  search(runOrder, null, 0);
   return best;
 }
-test('exact DP agrees with exhaustive permutations and directions', () => {
-  for (const cells of [
+test('direction DP agrees with exhaustive directions in region reading order', () => {
+  const fixtures = [
     [
       '321',
       '321',
@@ -256,19 +251,23 @@ test('exact DP agrees with exhaustive permutations and directions', () => {
       null,
       null,
     ],
-  ]) {
+  ];
+  for (const [index, cells] of fixtures.entries()) {
     const p = { width: 6, height: 2, cells, name: 'oracle' };
+    const runOrder = index === 0 ? [0, 2, 1, 3] : [0, 1, 3, 2];
     const result = optimizeColor(p, '321');
     assert.equal(result.exact, true);
     assert.ok(
       Math.abs(
-        result.after.cuts * 1e6 + result.after.backLength - bruteCost(p),
+        result.after.cuts * 1e6 +
+          result.after.backLength -
+          bruteCost(p, runOrder),
       ) < 1e-6,
     );
     verify(p);
   }
 });
-test('heuristic connects nearby regions and never worsens the baseline', () => {
+test('finishes each disconnected column before moving to the next', () => {
   const p = {
     width: 14,
     height: 6,
@@ -278,7 +277,7 @@ test('heuristic connects nearby regions and never worsens the baseline', () => {
     ),
   };
   const result = optimizeColor(p, '321');
-  assert.equal(result.exact, false);
+  assert.equal(result.exact, true);
   assert.ok(result.after.cuts < result.before.cuts);
   assert.ok(
     result.after.cuts * 1e6 + result.after.backLength <=
@@ -286,7 +285,7 @@ test('heuristic connects nearby regions and never worsens the baseline', () => {
   );
   verify(p);
 });
-test('bounded large-image search preserves every stitch and objective', () => {
+test('large patterns preserve complete regions across former batch boundaries', () => {
   const p = {
     width: 32,
     height: 20,
@@ -296,10 +295,93 @@ test('bounded large-image search preserves every stitch and objective', () => {
     ),
   };
   const result = optimizeColor(p, '321');
-  assert.equal(result.exact, false);
+  assert.equal(result.exact, true);
   assert.ok(
     result.after.cuts * 1e6 + result.after.backLength <=
       result.before.cuts * 1e6 + result.before.backLength + 1e-6,
+  );
+  verify(p);
+});
+
+function patternFromRows(rows) {
+  return {
+    width: rows[0].length,
+    height: rows.length,
+    cells: rows.flatMap((row) =>
+      [...row].map((cell) => (cell === '#' ? '321' : null)),
+    ),
+    name: 'reading order',
+  };
+}
+function runPositions(p) {
+  return colorRuns(p, '321').map((run) => {
+    const cells = run.steps.map((s) => s.cell);
+    const first = Math.min(...cells);
+    return [Math.floor(first / p.width), first % p.width];
+  });
+}
+test('screenshot regression: long middle rows precede the short lower tip', () => {
+  const p = patternFromRows([
+    '..##.....',
+    '..###....',
+    '..###.##.',
+    '..######.',
+    '...#####.',
+    '.######..',
+    '.######..',
+    '..####...',
+    '....#....',
+    '....#....',
+    '...##....',
+    '...#.....',
+  ]);
+  assert.deepEqual(runPositions(p), [
+    [0, 2],
+    [1, 2],
+    [2, 2],
+    [2, 6],
+    [3, 2],
+    [4, 3],
+    [5, 1],
+    [6, 1],
+    [7, 2],
+    [8, 4],
+    [9, 4],
+    [10, 3],
+    [11, 3],
+  ]);
+  verify(p);
+});
+test('finish one region without interleaving another and keep diagonal islands separate', () => {
+  const p = patternFromRows(['##....#.', '.##...#.', '..##..#.', '....#...']);
+  assert.deepEqual(runPositions(p), [
+    [0, 0],
+    [1, 1],
+    [2, 2],
+    [0, 6],
+    [1, 6],
+    [2, 6],
+    [3, 4],
+  ]);
+  verify(p);
+});
+test('split and rejoined branches keep row order even with fewer than eleven runs', () => {
+  const p = patternFromRows(['#####', '#...#', '#...#', '#####']);
+  assert.deepEqual(runPositions(p), [
+    [0, 0],
+    [1, 0],
+    [1, 4],
+    [2, 0],
+    [2, 4],
+    [3, 0],
+  ]);
+  verify(p);
+});
+test('large connected regions never restart row order at a batch boundary', () => {
+  const p = patternFromRows(Array.from({ length: 120 }, () => '#.#'));
+  assert.deepEqual(
+    runPositions(p),
+    [0, 2].flatMap((x) => Array.from({ length: 120 }, (_, y) => [y, x])),
   );
   verify(p);
 });

@@ -137,6 +137,42 @@ function variants(p: Pattern, color: string): Variant[] {
     });
   });
 }
+// Keep each edge-connected region together, visiting its runs top-to-bottom,
+// then left-to-right. Union adjacent rows through their occupied cells so a
+// split row that rejoins below still belongs to the same region.
+function readingOrder(
+  vs: Variant[],
+  width: number,
+  cellCount: number,
+): number[] {
+  const n = vs.length / 2;
+  const parents = Array.from({ length: n }, (_, i) => i);
+  const owner = new Int32Array(cellCount);
+  owner.fill(-1);
+  function root(id: number): number {
+    while (parents[id] !== id) {
+      parents[id] = parents[parents[id]];
+      id = parents[id];
+    }
+    return id;
+  }
+  for (let id = 0; id < n; id++) {
+    const run = vs[id * 2];
+    for (let i = 0; i < run.length / 2; i++) {
+      const cell = run[i].cell;
+      owner[cell] = id;
+      if (cell >= width && owner[cell - width] !== -1)
+        parents[root(id)] = root(owner[cell - width]);
+    }
+  }
+  const regions = new Map<number, number[]>();
+  for (let id = 0; id < n; id++) {
+    const key = root(id);
+    if (!regions.has(key)) regions.set(key, []);
+    regions.get(key)!.push(id);
+  }
+  return [...regions.values()].flat();
+}
 function enter(v: Variant, previous?: Point): Stitch[] {
   const copy = v.map((s) => ({ ...s }));
   if (previous && distance(previous, copy[0].from) === 0)
@@ -168,6 +204,7 @@ export type Optimization = {
   steps: Stitch[];
   before: ReturnType<typeof routeMetrics>;
   after: ReturnType<typeof routeMetrics>;
+  /** Directions are optimal for the fixed region/row order, not all permutations. */
   exact: boolean;
   runs: number;
 };
@@ -205,109 +242,45 @@ export function optimizeColor(p: Pattern, color: string): Optimization {
     const delta = distance(to, v[1].from) - distance(v[0].to, v[1].from);
     return internal[b] + delta + (gap > 3 ? CUT_WEIGHT : gap);
   };
-  const pathCost = (path: number[]) =>
-    path.reduce(
-      (sum, id, i) => sum + (i ? edge(path[i - 1], id) : internal[id]),
-      0,
-    );
-  let order = Array.from({ length: n }, (_, i) => i * 2);
-  if (n <= 10) {
-    // Held–Karp on (visited run subset, last run, last orientation), open path.
-    const width = 2 * n,
-      size = (1 << n) * width;
-    const dp = new Float64Array(size);
-    dp.fill(Infinity);
-    const parents = new Int16Array(size);
-    parents.fill(-1);
-    for (let v = 0; v < width; v++)
-      dp[(1 << (v >> 1)) * width + v] = internal[v];
-    for (let mask = 1; mask < 1 << n; mask++)
-      for (let a = 0; a < width; a++) {
-        const cost = dp[mask * width + a];
-        if (!Number.isFinite(cost)) continue;
-        for (let b = 0; b < width; b++) {
-          const bit = 1 << (b >> 1);
-          if (mask & bit) continue;
-          const idx = (mask | bit) * width + b,
-            next = cost + edge(a, b);
-          if (next < dp[idx]) {
-            dp[idx] = next;
-            parents[idx] = a;
-          }
+  const runs = readingOrder(vs, p.width, p.cells.length);
+  // The run order expresses readability. Optimize only the two entry directions
+  // along that order; never trade skipped rows for a shorter thread.
+  // State: (run position, direction). Each transition uses the actual holes,
+  // including the first-diagonal reversal needed to avoid undoing a stitch.
+  const parents = new Int8Array(n * 2);
+  let costs = [internal[runs[0] * 2], internal[runs[0] * 2 + 1]];
+  for (let i = 1; i < n; i++) {
+    const nextCosts = [Infinity, Infinity];
+    for (let direction = 0; direction < 2; direction++) {
+      const next = runs[i] * 2 + direction;
+      for (let previous = 0; previous < 2; previous++) {
+        const cost = costs[previous] + edge(runs[i - 1] * 2 + previous, next);
+        if (cost < nextCosts[direction] - 1e-8) {
+          nextCosts[direction] = cost;
+          parents[i * 2 + direction] = previous;
         }
       }
-    let mask = (1 << n) - 1,
-      last = 0;
-    for (let v = 1; v < width; v++)
-      if (dp[mask * width + v] < dp[mask * width + last]) last = v;
-    order = [];
-    while (mask) {
-      order.push(last);
-      const prev = parents[mask * width + last];
-      mask ^= 1 << (last >> 1);
-      last = prev;
     }
-    order.reverse();
-  } else {
-    // Bound work for large images: optimize batches of at most 100 nearby raster runs.
-    // Retain the complete baseline unless the final objective improves.
-    const proposed: number[] = [];
-    for (let offset = 0; offset < n; offset += 100) {
-      const count = Math.min(100, n - offset),
-        seeds = Math.min(count * 2, 12);
-      let best: number[] = [];
-      let bestCost = Infinity;
-      for (let seed = 0; seed < seeds; seed++) {
-        const path = [offset * 2 + Math.floor((seed / seeds) * count * 2)];
-        const visited = new Set([path[0] >> 1]);
-        while (path.length < count) {
-          let next = -1,
-            value = Infinity;
-          for (let b = offset * 2; b < (offset + count) * 2; b++)
-            if (!visited.has(b >> 1)) {
-              const cost = edge(path.at(-1)!, b);
-              if (cost < value) {
-                value = cost;
-                next = b;
-              }
-            }
-          path.push(next);
-          visited.add(next >> 1);
-        }
-        // Bounded orientation local search.
-        for (let pass = 0; pass < 2; pass++)
-          for (let i = 0; i < path.length; i++) {
-            const old = pathCost(path);
-            path[i] ^= 1;
-            if (pathCost(path) > old) path[i] ^= 1;
-          }
-        const cost =
-          pathCost(path) +
-          (proposed.length
-            ? edge(proposed.at(-1)!, path[0]) - internal[path[0]]
-            : 0);
-        if (cost < bestCost) {
-          bestCost = cost;
-          best = path;
-        }
-      }
-      proposed.push(...best);
-    }
-    if (pathCost(proposed) < pathCost(order)) order = proposed;
+    costs = nextCosts;
+  }
+  const order = Array.from({ length: n }, () => 0);
+  let direction = costs[1] < costs[0] - 1e-8 ? 1 : 0;
+  for (let i = n - 1; i >= 0; i--) {
+    order[i] = runs[i] * 2 + direction;
+    direction = parents[i * 2 + direction];
   }
   let previous: Point | undefined;
-  let steps = order.flatMap((id) => {
+  const steps = order.flatMap((id) => {
     const s = enter(vs[id], previous);
     previous = s.at(-1)!.to;
     return s;
   });
-  // Numerical tie handling preserves the familiar ordering when it is equally good.
-  if (score(base) <= score(steps) + 1e-8) steps = base;
   const result = {
     steps,
     before: routeMetrics(base),
     after: routeMetrics(steps),
-    exact: n <= 10,
+    // Exact only for the fixed reading order, not all run permutations.
+    exact: true,
     runs: n,
   };
   cache.set(color, result);
