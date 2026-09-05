@@ -4,7 +4,13 @@
 // Inline SVGs require an accessible image role; replacing them with img would lose their dynamic geometry.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 import { RouteOverview } from './route-overview';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import {
   Upload,
   ArrowRight,
@@ -57,6 +63,15 @@ export default function Home() {
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
   const board = useRef<SVGSVGElement>(null);
+  const [draftCells, setDraftCells] = useState<(string | null)[] | null>(null);
+  const stroke = useRef<{
+    pointerId: number;
+    original: Pattern;
+    cells: (string | null)[];
+    color: string | null;
+    last: [number, number] | null;
+    changed: boolean;
+  } | null>(null);
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
   const sequence = useMemo(() => route(pattern), [pattern]);
@@ -229,11 +244,94 @@ export default function Home() {
     };
     img.src = url;
   }
-  function edit(i: number) {
-    if (paint === undefined || view !== 'pattern') return;
-    const cells = [...pattern.cells];
-    cells[i] = paint;
-    update({ ...pattern, cells });
+  function pointerCell(
+    e: ReactPointerEvent<SVGSVGElement>,
+  ): [number, number] | null {
+    const matrix = e.currentTarget.getScreenCTM();
+    if (!matrix) return null;
+    const point = new DOMPoint(e.clientX, e.clientY).matrixTransform(
+      matrix.inverse(),
+    );
+    const x = Math.floor(point.x),
+      y = Math.floor(point.y);
+    return x >= 0 && y >= 0 && x < pattern.width && y < pattern.height
+      ? [x, y]
+      : null;
+  }
+  function paintStroke(e: ReactPointerEvent<SVGSVGElement>) {
+    const active = stroke.current;
+    if (!active || active.pointerId !== e.pointerId) return;
+    const cell = pointerCell(e);
+    // Leaving the grid breaks the line, so re-entry does not paint across it.
+    if (!cell) {
+      active.last = null;
+      return;
+    }
+    let [x, y] = active.last || cell;
+    const [endX, endY] = cell;
+    const dx = Math.abs(endX - x),
+      dy = -Math.abs(endY - y);
+    const sx = x < endX ? 1 : -1,
+      sy = y < endY ? 1 : -1;
+    let error = dx + dy,
+      changed = false;
+    // Fill skipped cells between pointer events, including fast diagonal strokes.
+    while (true) {
+      const i = y * active.original.width + x;
+      if (active.cells[i] !== active.color) {
+        active.cells[i] = active.color;
+        active.changed = true;
+        changed = true;
+      }
+      if (x === endX && y === endY) break;
+      const twice = 2 * error;
+      if (twice >= dy) {
+        error += dy;
+        x += sx;
+      }
+      if (twice <= dx) {
+        error += dx;
+        y += sy;
+      }
+    }
+    active.last = cell;
+    if (changed) setDraftCells([...active.cells]);
+  }
+  function beginStroke(e: ReactPointerEvent<SVGSVGElement>) {
+    if (
+      view !== 'pattern' ||
+      paint === undefined ||
+      e.button !== 0 ||
+      !e.isPrimary ||
+      stroke.current ||
+      !pointerCell(e)
+    )
+      return;
+    e.preventDefault();
+    stroke.current = {
+      pointerId: e.pointerId,
+      original: pattern,
+      cells: [...pattern.cells],
+      color: paint,
+      last: null,
+      changed: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    paintStroke(e);
+  }
+  function finishStroke(e: ReactPointerEvent<SVGSVGElement>) {
+    const active = stroke.current;
+    if (!active || active.pointerId !== e.pointerId) return;
+    if (e.type === 'pointerup') paintStroke(e);
+    stroke.current = null;
+    if (active.changed) {
+      setHistory((h) => [...h.slice(-19), active.original]);
+      setPattern({ ...active.original, cells: active.cells });
+      setStep(0);
+    }
+    setDraftCells(null);
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
   }
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
@@ -272,7 +370,7 @@ export default function Home() {
         const t = threads.find((t) => t.id === c)!;
         const x = (i % pattern.width) * cell + pad,
           y = Math.floor(i / pattern.width) * cell + pad;
-        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}" stroke="#888" stroke-width=".5"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)]}</text>`;
+        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}" stroke="#888" stroke-width=".5"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || '＋'}</text>`;
       })
       .join('');
     const legend = palette
@@ -519,7 +617,7 @@ export default function Home() {
             <h3>糸のパレット</h3>
             <span>DMC · {palette.length}色</span>
           </div>
-          <p className="micro">色を選んで、図案のマスを修正できます。</p>
+          <p className="micro">色を選んで、クリックやドラッグで塗れます。</p>
           <div className="palette">
             {palette.map((t, i) => (
               <button
@@ -706,8 +804,22 @@ export default function Home() {
                 >
                   <svg
                     ref={board}
+                    onPointerDown={beginStroke}
+                    onPointerMove={paintStroke}
+                    onPointerUp={finishStroke}
+                    onPointerCancel={finishStroke}
+                    onLostPointerCapture={finishStroke}
+                    style={{
+                      touchAction:
+                        view === 'pattern' && paint !== undefined
+                          ? 'none'
+                          : 'auto',
+                    }}
                     className={
-                      'pattern-grid ' + (paint !== undefined ? 'painting' : '')
+                      'pattern-grid ' +
+                      (view === 'pattern' && paint !== undefined
+                        ? 'painting'
+                        : '')
                     }
                     viewBox={`-2 -2 ${pattern.width + 4} ${pattern.height + 4}`}
                     role="img"
@@ -720,18 +832,14 @@ export default function Home() {
                       height={pattern.height}
                       fill="#fffefa"
                     />
-                    {pattern.cells.map((c, i) => {
+                    {(draftCells || pattern.cells).map((c, i) => {
                       const t = threads.find((t) => t.id === c);
                       const x = i % pattern.width,
                         y = Math.floor(i / pattern.width);
                       const faded =
                         view === 'step' && current && c !== current.color;
                       return (
-                        <g
-                          key={i}
-                          opacity={faded ? 0.2 : 1}
-                          onClick={() => edit(i)}
-                        >
+                        <g key={i} opacity={faded ? 0.2 : 1}>
                           <rect
                             x={x}
                             y={y}
@@ -749,7 +857,7 @@ export default function Home() {
                                 fill={ink(t.hex)}
                                 fontFamily="monospace"
                               >
-                                {symbols[palette.indexOf(t)]}
+                                {symbols[palette.indexOf(t)] || '＋'}
                               </text>
                             ) : (
                               <path
@@ -892,9 +1000,9 @@ export default function Home() {
                   </button>
                   <span>
                     {paint === null
-                      ? '消しゴム'
+                      ? 'ドラッグで消す'
                       : paint
-                        ? 'DMC ' + paint + ' で描く'
+                        ? 'DMC ' + paint + ' でドラッグして塗る'
                         : '色を選ぶと編集できます'}
                   </span>
                 </div>

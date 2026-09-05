@@ -1388,3 +1388,7 @@ footer button {
 .pdf-controls > .outline {
   margin-top: 10px;
 }
+.pattern-grid.painting {
+  user-select: none;
+  -webkit-user-select: none;
+}
