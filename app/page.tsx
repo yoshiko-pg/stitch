@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   NativeSelect,
   NativeSelectOption,
@@ -781,40 +782,35 @@ export default function Home() {
                   >
                     A 記号
                   </button>
-                  <label className="paint-color-label" htmlFor="paint-color">
-                    塗る色
-                  </label>
-                  <span
-                    className="paint-swatch"
-                    aria-hidden="true"
-                    style={{
-                      background:
-                        threads.find((t) => t.id === paint)?.hex ||
-                        'transparent',
-                    }}
-                  />
-                  <NativeSelect
-                    id="paint-color"
-                    className="paint-color-select"
+                  <RadioGroup
+                    className="paint-color-options"
+                    aria-label="塗る色"
                     value={paint || ''}
-                    onChange={(e) => {
-                      setPaint(e.target.value || undefined);
+                    onValueChange={(value) => {
+                      setPaint(String(value));
                       setView('pattern');
                     }}
                   >
-                    <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
-                    {[
-                      ...palette,
-                      ...threads.filter((t) => !palette.includes(t)),
-                    ].map((t) => (
-                      <NativeSelectOption key={t.id} value={t.id}>
-                        {palette.includes(t)
-                          ? symbols[palette.indexOf(t)] + ' · '
-                          : ''}
-                        DMC {t.id} · {t.name}
-                      </NativeSelectOption>
+                    {palette.map((t, i) => (
+                      <label
+                        key={t.id}
+                        className="paint-choice"
+                        htmlFor={`paint-${t.id}`}
+                        title={`DMC ${t.id} · ${t.name}`}
+                      >
+                        <RadioGroupItem
+                          id={`paint-${t.id}`}
+                          value={t.id}
+                          aria-label={`${symbols[i]} · DMC ${t.id} · ${t.name}`}
+                          className="paint-color-radio"
+                          style={{ background: t.hex, color: ink(t.hex) }}
+                        />
+                        <span>
+                          {symbols[i]} · {t.id}
+                        </span>
+                      </label>
                     ))}
-                  </NativeSelect>
+                  </RadioGroup>
                   <button
                     aria-label="一つ戻す"
                     disabled={!history.length}
