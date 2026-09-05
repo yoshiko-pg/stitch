@@ -16,9 +16,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Download,
-  RotateCcw,
-  Scissors,
-  Check,
   Grid2X2,
   Route,
   ZoomIn,
@@ -103,7 +100,6 @@ export default function Home() {
     );
   }
   const stitched = pattern.cells.filter(Boolean).length;
-  const active = threads.find((t) => t.id === current?.color);
   useEffect(() => {
     try {
       const raw =
@@ -454,9 +450,6 @@ export default function Home() {
     } catch {}
     return () => lifecycle.abort();
   }, [pattern, step, current, sequence.length]);
-  const progress = sequence.length
-    ? Math.round((step / sequence.length) * 100)
-    : 0;
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -610,6 +603,9 @@ export default function Home() {
             </button>
             <button className="text-button" onClick={exportSvg}>
               図案SVGを保存
+            </button>
+            <button className="text-button" onClick={exportRoute}>
+              運針表をCSVで保存
             </button>
           </section>
           <div className="divider" />
@@ -1026,157 +1022,52 @@ export default function Home() {
               </div>
             </>
           )}
-        </section>
-        <aside className="guide-panel">
-          <div className="panel-heading">
-            <span className="section-number">02</span>
-            <h2>針の道しるべ</h2>
-            <span className="beta">BETA</span>
-          </div>
-          {view === 'guide' ? (
-            <OverviewHelp />
-          ) : (
-            <>
-              <p className="guide-intro">
-                出す穴と、入れる穴。
-                <br />
-                ひと針ずつ確認して進めましょう。
-              </p>
-              {current && step < sequence.length ? (
-                <>
-                  <div className="current-thread">
-                    <span
-                      className="swatch"
-                      style={{ background: active?.hex }}
-                    />
-                    <div>
-                      <small>いま使う糸</small>
-                      <strong>
-                        DMC {active?.id} <span>{active?.name}</span>
-                      </strong>
-                    </div>
-                  </div>
-                  <div
-                    className={
-                      'instruction ' + (current.kind === 'turn' ? 'turn' : '')
-                    }
-                  >
-                    <span className="step-label">
-                      STEP {step + 1} / {sequence.length}
-                    </span>
-                    <h3>
-                      {current.kind === 'cut' ? (
-                        <Scissors size={19} />
-                      ) : current.kind === 'turn' ? (
-                        <RotateCcw size={19} />
-                      ) : (
-                        <ArrowRight size={19} />
-                      )}{' '}
-                      {labels[current.kind]}
-                    </h3>
-                    <HoleDiagram from={current.from} to={current.to} />
-                    <div className="hole-legend">
-                      <span>
-                        <i className="out-dot" />
-                        針を出す
-                      </span>
-                      <span>
-                        <i className="in-dot" />
-                        針を入れる
-                      </span>
-                    </div>
-                    <div className="coordinates">
-                      <p>
-                        出す穴 <strong>({current.from.join(', ')})</strong>
-                      </p>
-                      <ArrowRight size={16} />
-                      <p>
-                        入れる穴 <strong>({current.to.join(', ')})</strong>
-                      </p>
-                    </div>
-                    <p className="instruction-note">
-                      {current.kind === 'cut'
-                        ? '裏で糸を始末して切り、新しい糸を固定してから再開します。'
-                        : current.kind === 'jump'
-                          ? `前の穴から裏側を約${current.travel.toFixed(1)}目分移動します。糸を強く引きすぎないで。`
-                          : current.kind === 'turn'
-                            ? '区間の端まで来ました。上に重なる「／」を刺して戻ります。出す穴と入れる穴を確認してください。'
-                            : current.kind === 'start'
-                              ? step > 0
-                                ? '前の色の糸を裏で始末します。新しい色の糸を固定して、緑の穴から出します。'
-                                : '裏側で糸を固定してから、緑の穴に針を出します。'
-                              : '緑の穴から表へ出し、オレンジの穴から裏へ入れます。'}
-                    </p>
-                  </div>
-                  <button
-                    className="primary full next"
-                    onClick={() => {
-                      setStep((s) => Math.min(sequence.length, s + 1));
-                      setView('step');
-                    }}
-                  >
-                    刺した、次のひと針へ
-                    <ArrowRight size={17} />
-                  </button>
-                  <button
-                    className="back"
-                    disabled={step === 0}
-                    onClick={() => {
-                      setStep((s) => s - 1);
-                      setView('step');
-                    }}
-                  >
-                    <ArrowLeft size={15} />
-                    ひと針戻る
-                  </button>
-                </>
-              ) : (
-                <div className="finished">
-                  <Check size={32} />
-                  <h3>
-                    {stitched ? 'できあがり！' : '糸色を選んで描いてみよう'}
-                  </h3>
-                  <p>
-                    {stitched
-                      ? '最後に裏側で糸を始末しましょう。'
-                      : '色のあるマスから運針が作られます。'}
-                  </p>
-                  <button className="outline" onClick={() => setStep(0)}>
-                    最初に戻る
-                  </button>
-                </div>
-              )}
-              <div className="progress-label">
-                <span>運針の進み具合</span>
-                <strong>{progress}%</strong>
-              </div>
-              <div className="progress-track">
-                <div style={{ width: progress + '%' }} />
-              </div>
-              <p className="micro">
-                1ステップ＝片方の斜めのひと針。
-                <br />
-                穴の座標は図案の左上が (0, 0) です。
-              </p>
-              <details className="route-rules">
-                <summary>運針の基本パターン</summary>
-                <p>
-                  ① 下糸「＼」を矢印の方向へ刺す
-                  <br />② 上糸「／」で折り返す
-                  <br />③ 次のまとまりへ裏側を移動
-                  <br />④ 3目を超える移動は糸を切って再開
-                </p>
-                <p>
-                  下糸は「＼」、上糸は「／」に統一します。裏側の糸始末は手作業です。最短経路や絡まないことを保証するものではありません。
-                </p>
-              </details>
-              <button className="text-button" onClick={exportRoute}>
-                <Download size={15} />
-                運針表をCSVで保存
+          {view === 'step' && (
+            <div className="step-navigation">
+              <button
+                className="outline"
+                disabled={step === 0}
+                onClick={() => setStep((s) => s - 1)}
+              >
+                <ArrowLeft size={16} />
+                戻る
               </button>
-            </>
+              <div aria-live="polite">
+                {current && step < sequence.length ? (
+                  <>
+                    <strong>
+                      {step + 1} / {sequence.length} · DMC {current.color} ·{' '}
+                      {labels[current.kind]}
+                    </strong>
+                    <span>
+                      出す穴 ({current.from.join(', ')}) → 入れる穴 (
+                      {current.to.join(', ')})
+                    </span>
+                    {current.kind === 'cut' && (
+                      <span>
+                        裏で糸を始末し、新しい糸を固定して再開します。
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <strong>
+                    {sequence.length
+                      ? '完成です。最後に裏で糸を始末します。'
+                      : '色のあるマスを作ると運針が表示されます。'}
+                  </strong>
+                )}
+              </div>
+              <button
+                className="primary"
+                disabled={step >= sequence.length}
+                onClick={() => setStep((s) => s + 1)}
+              >
+                次へ
+                <ArrowRight size={16} />
+              </button>
+            </div>
           )}
-        </aside>
+        </section>
       </main>
       <footer>
         <output className="status">
@@ -1239,127 +1130,6 @@ export default function Home() {
           />
         </label>
       </footer>
-    </div>
-  );
-}
-function HoleDiagram({
-  from,
-  to,
-}: {
-  from: [number, number];
-  to: [number, number];
-}) {
-  const minX = Math.min(from[0], to[0]),
-    minY = Math.min(from[1], to[1]);
-  const a = [(from[0] - minX) * 90 + 55, (from[1] - minY) * 90 + 35],
-    b = [(to[0] - minX) * 90 + 55, (to[1] - minY) * 90 + 35];
-  return (
-    <svg
-      className="hole-diagram"
-      viewBox="0 0 200 165"
-      role="img"
-      aria-label={`穴${from.join(',')}から出し、穴${to.join(',')}へ入れる`}
-    >
-      <defs>
-        <pattern id="cloth" width="9" height="9" patternUnits="userSpaceOnUse">
-          <path d="M9 0H0V9" fill="none" stroke="#d7ded4" strokeWidth=".6" />
-        </pattern>
-        <marker
-          id="arrow"
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="4"
-          markerHeight="4"
-          orient="auto-start-reverse"
-        >
-          <path d="M0 0L10 5L0 10z" fill="#204e45" />
-        </marker>
-      </defs>
-      <rect width="200" height="165" rx="8" fill="url(#cloth)" />
-      {[55, 145].flatMap((x) =>
-        [35, 125].map((y) => (
-          <circle key={`${x}-${y}`} cx={x} cy={y} r="4" fill="#8a9990" />
-        )),
-      )}
-      <path
-        d={`M${a[0]} ${a[1]}L${b[0]} ${b[1]}`}
-        stroke="#204e45"
-        strokeWidth="4"
-        strokeDasharray="5 3"
-        markerEnd="url(#arrow)"
-      />
-      <circle
-        cx={a[0]}
-        cy={a[1]}
-        r="14"
-        fill="#16866d"
-        stroke="white"
-        strokeWidth="3"
-      />
-      <text
-        x={a[0]}
-        y={a[1] + 5}
-        textAnchor="middle"
-        fontSize="14"
-        fill="white"
-      >
-        出
-      </text>
-      <circle
-        cx={b[0]}
-        cy={b[1]}
-        r="14"
-        fill="#d95b32"
-        stroke="white"
-        strokeWidth="3"
-      />
-      <text
-        x={b[0]}
-        y={b[1] + 5}
-        textAnchor="middle"
-        fontSize="14"
-        fill="white"
-      >
-        入
-      </text>
-    </svg>
-  );
-}
-
-function OverviewHelp() {
-  return (
-    <div className="overview-help">
-      <h3>色ごとに、道すじを一覧。</h3>
-      <p>見たい糸色を選ぶと、その色の運針をまとめて表示します。</p>
-      <ol>
-        <li>
-          図の <b>区間1</b> から始める
-        </li>
-        <li>
-          下糸 <b>＼</b> を矢印の方向へ刺す
-        </li>
-        <li>
-          区間の端で折り返し、上糸 <b>／</b> で戻る
-        </li>
-        <li>移動の案内を確認して次の区間へ</li>
-      </ol>
-      <div className="route-key">
-        <p>
-          <span className="lower-key">青い線</span> 下糸・往路
-        </p>
-        <p>
-          <span className="upper-key">橙の線</span> 上糸・復路
-        </p>
-        <p>点線：裏側の移動</p>
-        <p>✂：糸を始末して再開</p>
-      </div>
-      <p>
-        下の区間一覧には、出す穴・入れる穴と順番をすべて表示します。1ステップずつ送る必要はありません。
-      </p>
-      <p className="micro">
-        区間ごとに「下糸→上糸」を完了してください。図案全体の下糸を先に刺す順番ではありません。
-      </p>
     </div>
   );
 }
