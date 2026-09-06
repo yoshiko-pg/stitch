@@ -29,7 +29,14 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
-import { threads, route, sample, quantize, type Pattern } from '@/lib/stitch';
+import {
+  threads,
+  route,
+  sample,
+  quantize,
+  trimPattern,
+  type Pattern,
+} from '@/lib/stitch';
 import {
   representativePixels,
   simplifySpeckles,
@@ -96,6 +103,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
   const sequence = useMemo(() => route(pattern), [pattern]);
+  const trimmedPattern = useMemo(() => trimPattern(pattern), [pattern]);
   const current = sequence[Math.min(step, sequence.length - 1)];
   const palette = useMemo(
     () => threads.filter((t) => pattern.cells.includes(t.id)),
@@ -796,6 +804,19 @@ export default function Home() {
                     }}
                   >
                     <Undo2 size={17} />
+                  </button>
+                  <button
+                    disabled={trimmedPattern === pattern || busy}
+                    title="絵柄の外側にある空白の行・列を取り除きます"
+                    onClick={() => {
+                      if (trimmedPattern === pattern) return;
+                      update(trimmedPattern);
+                      setMessage(
+                        `余白を詰めました（${pattern.width}×${pattern.height} → ${trimmedPattern.width}×${trimmedPattern.height}目）。「一つ戻す」で取り消せます。運針は最初からになります。`,
+                      );
+                    }}
+                  >
+                    余白を詰める
                   </button>
                 </div>
                 <div className="zoom-tools">

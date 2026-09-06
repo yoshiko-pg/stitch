@@ -41,6 +41,34 @@ export type Pattern = {
   name: string;
 };
 export type Point = [number, number];
+/** Remove only empty outer rows/columns; keep interior gaps and every thread. */
+export function trimPattern(p: Pattern): Pattern {
+  let left = p.width,
+    top = p.height,
+    right = -1,
+    bottom = -1;
+  p.cells.forEach((color, cell) => {
+    if (color === null) return;
+    const x = cell % p.width,
+      y = Math.floor(cell / p.width);
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
+  });
+  if (
+    right < 0 ||
+    (left === 0 &&
+      top === 0 &&
+      right === p.width - 1 &&
+      bottom === p.height - 1)
+  )
+    return p;
+  const cells: Pattern['cells'] = [];
+  for (let y = top; y <= bottom; y++)
+    cells.push(...p.cells.slice(y * p.width + left, y * p.width + right + 1));
+  return { ...p, width: right - left + 1, height: bottom - top + 1, cells };
+}
 export type Stitch = {
   color: string;
   cell: number;
