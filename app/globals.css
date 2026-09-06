@@ -561,6 +561,35 @@ h1 {
   padding: 13px 16px;
   gap: 10px;
 }
+.freehand-controls {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dce3dc;
+}
+.freehand-controls h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.freehand-controls p {
+  font-size: 12px;
+  color: #64785e;
+  line-height: 1.7;
+  margin: 8px 0;
+}
+.canvas-size-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.canvas-size-fields label {
+  font-size: 13px;
+  min-width: 0;
+}
+.canvas-size-fields input {
+  margin-top: 6px;
+  width: 100%;
+}
 .canvas-actions button {
   background: none;
   border: 0;

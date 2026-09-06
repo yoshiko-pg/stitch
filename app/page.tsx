@@ -23,6 +23,7 @@ import {
   Save,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
@@ -54,6 +55,14 @@ const labels = {
 export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
+  const [canvasWidth, setCanvasWidth] = useState('32');
+  const [canvasHeight, setCanvasHeight] = useState('32');
+  const validCanvasSize = [canvasWidth, canvasHeight].every(
+    (value) =>
+      Number.isInteger(Number(value)) &&
+      Number(value) >= 1 &&
+      Number(value) <= 120,
+  );
   const [colors, setColors] = useState(8);
   const [conversionMode, setConversionMode] =
     useState<ConversionMode>('illustration');
@@ -484,6 +493,72 @@ export default function Home() {
           <div className="panel-heading">
             <h2>図案をつくる</h2>
           </div>
+          <form
+            className="freehand-controls"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!validCanvasSize || busy) return;
+              const w = Number(canvasWidth),
+                h = Number(canvasHeight);
+              update({
+                width: w,
+                height: h,
+                cells: Array.from({ length: w * h }, () => null),
+                name: '手描きの図案',
+              });
+              source.current = null;
+              setSourceName('');
+              setPaint('310');
+              setView('pattern');
+              setZoom(1);
+              setMessage(
+                `${w}×${h}目のキャンバスを作りました。黒で描けます。糸色は「ほかの糸色を追加」から選べます。「一つ戻す」で前の図案に戻せます。`,
+              );
+            }}
+          >
+            <h3>自由に描く</h3>
+            <p id="canvas-size-help">横・縦それぞれ1〜120目で指定できます。</p>
+            <div className="canvas-size-fields">
+              <label htmlFor="canvas-width">
+                横の目数
+                <Input
+                  id="canvas-width"
+                  type="number"
+                  min={1}
+                  max={120}
+                  step={1}
+                  required
+                  value={canvasWidth}
+                  onChange={(e) => setCanvasWidth(e.target.value)}
+                  aria-describedby="canvas-size-help"
+                  disabled={busy}
+                />
+              </label>
+              <label htmlFor="canvas-height">
+                縦の目数
+                <Input
+                  id="canvas-height"
+                  type="number"
+                  min={1}
+                  max={120}
+                  step={1}
+                  required
+                  value={canvasHeight}
+                  onChange={(e) => setCanvasHeight(e.target.value)}
+                  aria-describedby="canvas-size-help"
+                  disabled={busy}
+                />
+              </label>
+            </div>
+            <button
+              className="primary full"
+              type="submit"
+              disabled={!validCanvasSize || busy}
+            >
+              空のキャンバスを作る
+            </button>
+            <p>現在の図案を置き換えます。「一つ戻す」で元に戻せます。</p>
+          </form>
           <input
             ref={upload}
             type="file"
