@@ -1733,3 +1733,29 @@ footer button {
   outline: 3px solid #c59146;
   outline-offset: 2px;
 }
+
+.dot-text-tool {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.dot-text-tool > label,
+.dot-text-tool .canvas-size-fields label {
+  font-size: 14px;
+}
+.dot-text-tool p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.dot-text-preview {
+  overflow: auto;
+  max-height: 180px;
+  padding: 8px;
+  background: #fffefa;
+  border: 1px solid var(--border);
+}
+.dot-text-preview svg {
+  max-width: none;
+}

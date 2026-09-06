@@ -3,6 +3,7 @@
 /* oxlint-disable react/react-compiler */
 // Inline SVGs require an accessible image role; replacing them with img would lose their dynamic geometry.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
+import { DotTextTool } from '@/components/dot-text-tool';
 import { RouteOverview } from './route-overview';
 import {
   useEffect,
@@ -559,6 +560,17 @@ export default function Home() {
             </button>
             <p>現在の図案を置き換えます。「一つ戻す」で元に戻せます。</p>
           </form>
+          <DotTextTool
+            pattern={pattern}
+            onPlace={(next) => {
+              update(next);
+              setView('pattern');
+              setPaint(undefined);
+              setMessage(
+                'ドット文字を配置しました。「一つ戻す」で取り消せます。',
+              );
+            }}
+          />
           <input
             ref={upload}
             type="file"
