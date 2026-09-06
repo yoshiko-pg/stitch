@@ -21,6 +21,7 @@ import {
   ZoomIn,
   ZoomOut,
   Undo2,
+  Eraser,
   Save,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -881,6 +882,19 @@ export default function Home() {
                       </label>
                     ))}
                   </RadioGroup>
+                  <button
+                    type="button"
+                    className={paint === null ? 'active' : ''}
+                    aria-pressed={paint === null}
+                    title="ドラッグして目を消す"
+                    onClick={() => {
+                      setPaint(paint === null ? undefined : null);
+                      setView('pattern');
+                    }}
+                  >
+                    <Eraser size={17} />
+                    消しゴム
+                  </button>
                   <button
                     aria-label="一つ戻す"
                     disabled={!history.length}
