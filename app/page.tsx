@@ -741,6 +741,21 @@ export default function Home() {
               >
                 今の図案をこのサイズに変更
               </button>
+              <button
+                className="outline full"
+                type="button"
+                disabled={trimmedPattern === pattern || busy}
+                title="絵柄の外側にある空白の行・列を取り除きます"
+                onClick={() => {
+                  if (trimmedPattern === pattern) return;
+                  update(trimmedPattern);
+                  setMessage(
+                    `余白を詰めました（${pattern.width}×${pattern.height} → ${trimmedPattern.width}×${trimmedPattern.height}目）。「一つ戻す」で取り消せます。運針は最初からになります。`,
+                  );
+                }}
+              >
+                余白を詰める
+              </button>
             </form>
           )}
           {tool === "text" && (
@@ -947,20 +962,21 @@ export default function Home() {
                     type="button"
                     className={paint === null ? "active" : ""}
                     aria-pressed={paint === null}
-                    title="ドラッグして目を消す"
+                    aria-label="消しゴム"
+                    title="消しゴム · ドラッグして目を消す"
                     onClick={() => {
                       setPaint(paint === null ? undefined : null);
                       setView("pattern");
                     }}
                   >
                     <Eraser size={17} />
-                    消しゴム
                   </button>
                   <button
                     type="button"
                     className={selecting ? "active" : ""}
                     aria-pressed={selecting}
-                    title="ドラッグで範囲を選び、選択範囲をドラッグして移動"
+                    aria-label="範囲選択"
+                    title="範囲選択 · ドラッグで範囲を選び、選択範囲をドラッグして移動"
                     onClick={() => {
                       const next = !selecting;
                       setSelecting(next);
@@ -975,7 +991,6 @@ export default function Home() {
                     }}
                   >
                     <BoxSelect size={17} />
-                    範囲選択
                   </button>
                   <button
                     aria-label="一つ戻す"
@@ -987,19 +1002,6 @@ export default function Home() {
                     }}
                   >
                     <Undo2 size={17} />
-                  </button>
-                  <button
-                    disabled={trimmedPattern === pattern || busy}
-                    title="絵柄の外側にある空白の行・列を取り除きます"
-                    onClick={() => {
-                      if (trimmedPattern === pattern) return;
-                      update(trimmedPattern);
-                      setMessage(
-                        `余白を詰めました（${pattern.width}×${pattern.height} → ${trimmedPattern.width}×${trimmedPattern.height}目）。「一つ戻す」で取り消せます。運針は最初からになります。`,
-                      );
-                    }}
-                  >
-                    余白を詰める
                   </button>
                   <Popover>
                     <PopoverTrigger aria-label="その他の操作">
