@@ -1,39 +1,39 @@
 export type Thread = { id: string; name: string; hex: string };
 // DMC numbers identify actual Mouliné Spécial threads. RGB values are approximate display swatches.
 export const threads: Thread[] = [
-  ['Blanc', '白', 'f5f4ed'],
-  ['310', '黒', '252528'],
-  ['318', 'ライトグレー', 'a5a5a5'],
-  ['414', 'ダークグレー', '666971'],
-  ['321', '赤', 'bb2439'],
-  ['666', 'ブライトレッド', 'e33139'],
-  ['761', 'ライトサーモン', 'f5b6b7'],
-  ['3716', 'ピンク', 'f2a0b2'],
-  ['814', 'ワイン', '722438'],
-  ['740', 'オレンジ', 'f78026'],
-  ['743', 'イエロー', 'f8d77a'],
-  ['444', 'レモン', 'f1cd25'],
-  [' Ecru', '生成り', 'e8dfc3'],
-  ['801', 'ダークブラウン', '69412f'],
-  ['433', 'ブラウン', '835a3b'],
-  ['435', 'ライトブラウン', 'ba8959'],
-  ['3865', 'ウィンターホワイト', 'f5f1e7'],
-  ['469', 'オリーブ', '728144'],
-  ['470', 'ライトオリーブ', '95a64d'],
-  ['3347', 'グリーン', '71935c'],
-  ['699', '深緑', '17663c'],
-  ['702', 'ケリーグリーン', '399447'],
-  ['3846', 'ターコイズ', '36b8bd'],
-  ['3810', 'ブルーグリーン', '488f92'],
-  ['597', 'ライトターコイズ', '78b8c4'],
-  ['3755', 'ベビーブルー', '91b7d5'],
-  ['798', 'ブルー', '5276aa'],
-  ['797', 'ロイヤルブルー', '354e91'],
-  ['820', 'ネイビー', '263460'],
-  ['550', 'バイオレット', '64396f'],
-  ['552', 'パープル', '9460a0'],
-  ['153', 'ライトバイオレット', 'dfc5e4'],
-].map(([id, name, hex]) => ({ id: id.trim(), name, hex: '#' + hex }));
+  ["Blanc", "白", "f5f4ed"],
+  ["310", "黒", "252528"],
+  ["318", "ライトグレー", "a5a5a5"],
+  ["414", "ダークグレー", "666971"],
+  ["321", "赤", "bb2439"],
+  ["666", "ブライトレッド", "e33139"],
+  ["761", "ライトサーモン", "f5b6b7"],
+  ["3716", "ピンク", "f2a0b2"],
+  ["814", "ワイン", "722438"],
+  ["740", "オレンジ", "f78026"],
+  ["743", "イエロー", "f8d77a"],
+  ["444", "レモン", "f1cd25"],
+  [" Ecru", "生成り", "e8dfc3"],
+  ["801", "ダークブラウン", "69412f"],
+  ["433", "ブラウン", "835a3b"],
+  ["435", "ライトブラウン", "ba8959"],
+  ["3865", "ウィンターホワイト", "f5f1e7"],
+  ["469", "オリーブ", "728144"],
+  ["470", "ライトオリーブ", "95a64d"],
+  ["3347", "グリーン", "71935c"],
+  ["699", "深緑", "17663c"],
+  ["702", "ケリーグリーン", "399447"],
+  ["3846", "ターコイズ", "36b8bd"],
+  ["3810", "ブルーグリーン", "488f92"],
+  ["597", "ライトターコイズ", "78b8c4"],
+  ["3755", "ベビーブルー", "91b7d5"],
+  ["798", "ブルー", "5276aa"],
+  ["797", "ロイヤルブルー", "354e91"],
+  ["820", "ネイビー", "263460"],
+  ["550", "バイオレット", "64396f"],
+  ["552", "パープル", "9460a0"],
+  ["153", "ライトバイオレット", "dfc5e4"],
+].map(([id, name, hex]) => ({ id: id.trim(), name, hex: "#" + hex }));
 export type Pattern = {
   width: number;
   height: number;
@@ -64,7 +64,7 @@ export function trimPattern(p: Pattern): Pattern {
       bottom === p.height - 1)
   )
     return p;
-  const cells: Pattern['cells'] = [];
+  const cells: Pattern["cells"] = [];
   for (let y = top; y <= bottom; y++)
     cells.push(...p.cells.slice(y * p.width + left, y * p.width + right + 1));
   return { ...p, width: right - left + 1, height: bottom - top + 1, cells };
@@ -97,12 +97,25 @@ export function moveRegion(
   if (!changed && cells.every((c, i) => c === p.cells[i])) return p;
   return { ...p, cells };
 }
+/** Change the canvas size, keeping stitches anchored top-left; overflow is cropped. */
+export function resizePattern(
+  p: Pattern,
+  width: number,
+  height: number,
+): Pattern {
+  if (width === p.width && height === p.height) return p;
+  const cells: Pattern["cells"] = [];
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      cells.push(x < p.width && y < p.height ? p.cells[y * p.width + x] : null);
+  return { ...p, width, height, cells };
+}
 export type Stitch = {
   color: string;
   cell: number;
   from: Point;
   to: Point;
-  kind: 'start' | 'forward' | 'turn' | 'return' | 'jump' | 'cut';
+  kind: "start" | "forward" | "turn" | "return" | "jump" | "cut";
   travel: number;
 };
 export function baselineRoute(p: Pattern): Stitch[] {
@@ -127,12 +140,12 @@ export function baselineRoute(p: Pattern): Stitch[] {
             ? Math.hypot(from[0] - previous[0], from[1] - previous[1])
             : 0;
           const kind = !previous
-            ? 'start'
+            ? "start"
             : a === start
               ? travel > 3
-                ? 'cut'
-                : 'jump'
-              : 'forward';
+                ? "cut"
+                : "jump"
+              : "forward";
           result.push({ color, cell: y * p.width + a, from, to, kind, travel });
           previous = to;
         }
@@ -144,7 +157,7 @@ export function baselineRoute(p: Pattern): Stitch[] {
             cell: y * p.width + a,
             from,
             to,
-            kind: a === end ? 'turn' : 'return',
+            kind: a === end ? "turn" : "return",
             travel: Math.hypot(from[0] - previous![0], from[1] - previous![1]),
           });
           previous = to;
@@ -158,7 +171,7 @@ const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 function variants(p: Pattern, color: string): Variant[] {
   const groups: Stitch[][] = [];
   for (const s of baselineRoute(p).filter((s) => s.color === color)) {
-    if (['start', 'jump', 'cut'].includes(s.kind)) groups.push([]);
+    if (["start", "jump", "cut"].includes(s.kind)) groups.push([]);
     groups.at(-1)!.push(s);
   }
   return groups.flatMap((group) => {
@@ -180,12 +193,12 @@ function variants(p: Pattern, color: string): Variant[] {
             to,
             kind:
               result.length === 0
-                ? 'start'
+                ? "start"
                 : upper
                   ? result.length === cells.length
-                    ? 'turn'
-                    : 'return'
-                  : 'forward',
+                    ? "turn"
+                    : "return"
+                  : "forward",
             travel: 0,
           });
         }
@@ -236,15 +249,15 @@ function enter(v: Variant, previous?: Point): Stitch[] {
   copy.forEach((s, i) => {
     const prev = i ? copy[i - 1].to : previous;
     s.travel = prev ? distance(prev, s.from) : 0;
-    if (!i) s.kind = !prev ? 'start' : s.travel > 3 ? 'cut' : 'jump';
+    if (!i) s.kind = !prev ? "start" : s.travel > 3 ? "cut" : "jump";
   });
   return copy;
 }
 export function routeMetrics(steps: Stitch[]) {
   return {
-    cuts: steps.filter((s) => s.kind === 'cut').length,
+    cuts: steps.filter((s) => s.kind === "cut").length,
     backLength: steps.reduce(
-      (sum, s) => sum + (['cut', 'start'].includes(s.kind) ? 0 : s.travel),
+      (sum, s) => sum + (["cut", "start"].includes(s.kind) ? 0 : s.travel),
       0,
     ),
   };
@@ -425,16 +438,16 @@ export function sample(): Pattern {
     return d > 10
       ? null
       : d > 8
-        ? '797'
+        ? "797"
         : d > 6
-          ? '3755'
+          ? "3755"
           : d > 4
-            ? '743'
+            ? "743"
             : d > 2
-              ? '321'
-              : 'Blanc';
+              ? "321"
+              : "Blanc";
   });
-  return { width, height, cells, name: 'ひし形のステッチサンプラー' };
+  return { width, height, cells, name: "ひし形のステッチサンプラー" };
 }
 
 export type RouteRun = {
@@ -446,7 +459,7 @@ export function colorRuns(pattern: Pattern, color: string): RouteRun[] {
   route(pattern)
     .filter((s) => s.color === color)
     .forEach((s, i) => {
-      if (['start', 'jump', 'cut'].includes(s.kind)) {
+      if (["start", "jump", "cut"].includes(s.kind)) {
         runs.push({ id: runs.length + 1, steps: [] });
       }
       runs[runs.length - 1].steps.push({ ...s, needleNumber: i + 1 });

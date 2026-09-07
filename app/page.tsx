@@ -1,17 +1,17 @@
-'use client';
+"use client";
 // Client-only persistence deliberately hydrates after mount; the compiler rule also reports an internal PruneHoistedContexts invariant here.
 /* oxlint-disable react/react-compiler */
 // Inline SVGs require an accessible image role; replacing them with img would lose their dynamic geometry.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
-import { DotTextTool } from '@/components/dot-text-tool';
-import { RouteOverview } from './route-overview';
+import { DotTextTool } from "@/components/dot-text-tool";
+import { RouteOverview } from "./route-overview";
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-} from 'react';
+} from "react";
 import {
   Upload,
   ArrowRight,
@@ -24,15 +24,15 @@ import {
   Eraser,
   BoxSelect,
   Save,
-} from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+} from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   NativeSelect,
   NativeSelectOption,
-} from '@/components/ui/native-select';
+} from "@/components/ui/native-select";
 import {
   threads,
   route,
@@ -40,28 +40,29 @@ import {
   quantize,
   trimPattern,
   moveRegion,
+  resizePattern,
   type Pattern,
   type Region,
-} from '@/lib/stitch';
+} from "@/lib/stitch";
 import {
   representativePixels,
   simplifySpeckles,
   type ConversionMode,
-} from '@/lib/image-processing';
-const symbols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
+} from "@/lib/image-processing";
+const symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
 const labels = {
-  start: 'ここからスタート',
-  forward: '下糸を刺して進む',
-  turn: 'ここで折り返す',
-  return: '上糸を刺して戻る',
-  jump: '次の列・まとまりへ移動',
-  cut: '糸を始末して、ここから再開',
+  start: "ここからスタート",
+  forward: "下糸を刺して進む",
+  turn: "ここで折り返す",
+  return: "上糸を刺して戻る",
+  jump: "次の列・まとまりへ移動",
+  cut: "糸を始末して、ここから再開",
 };
 export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
-  const [canvasWidth, setCanvasWidth] = useState('32');
-  const [canvasHeight, setCanvasHeight] = useState('32');
+  const [canvasWidth, setCanvasWidth] = useState("32");
+  const [canvasHeight, setCanvasHeight] = useState("32");
   const validCanvasSize = [canvasWidth, canvasHeight].every(
     (value) =>
       Number.isInteger(Number(value)) &&
@@ -70,21 +71,21 @@ export default function Home() {
   );
   const [colors, setColors] = useState(8);
   const [conversionMode, setConversionMode] =
-    useState<ConversionMode>('illustration');
+    useState<ConversionMode>("illustration");
   const [speckles, setSpeckles] = useState(0);
-  const [view, setView] = useState('guide');
+  const [view, setView] = useState("guide");
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [step, setStep] = useState(0);
   const [paint, setPaint] = useState<string | null | undefined>();
-  const [mergeFrom, setMergeFrom] = useState('');
-  const [mergeTo, setMergeTo] = useState('');
+  const [mergeFrom, setMergeFrom] = useState("");
+  const [mergeTo, setMergeTo] = useState("");
   const [history, setHistory] = useState<Pattern[]>([]);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
-  const [pdfColor, setPdfColor] = useState('all');
-  const [sourceName, setSourceName] = useState('');
+  const [pdfColor, setPdfColor] = useState("all");
+  const [sourceName, setSourceName] = useState("");
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
   const board = useRef<SVGSVGElement>(null);
@@ -96,7 +97,7 @@ export default function Home() {
     if (!element || !root) return;
     const measure = () =>
       root.style.setProperty(
-        '--footer-height',
+        "--footer-height",
         `${Math.ceil(element.getBoundingClientRect().height)}px`,
       );
     measure();
@@ -117,10 +118,10 @@ export default function Home() {
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
   const selectDrag = useRef<
-    | { pointerId: number; kind: 'draw'; anchor: [number, number] }
+    | { pointerId: number; kind: "draw"; anchor: [number, number] }
     | {
         pointerId: number;
-        kind: 'move';
+        kind: "move";
         origin: [number, number];
         region: Region;
         original: Pattern;
@@ -163,8 +164,8 @@ export default function Home() {
       ),
     });
     setPaint(mergeTarget.id);
-    setMergeFrom('');
-    setView('pattern');
+    setMergeFrom("");
+    setView("pattern");
     setMessage(
       `DMC ${mergeSource.id} の ${mergeCount}目を DMC ${mergeTarget.id} にまとめました。「一つ戻す」で取り消せます。運針は最初からになります。`,
     );
@@ -172,9 +173,9 @@ export default function Home() {
   useEffect(() => {
     try {
       const raw =
-        localStorage.getItem('ito-project-v3') ||
-        localStorage.getItem('ito-project-v2') ||
-        localStorage.getItem('ito-project-v1');
+        localStorage.getItem("ito-project-v3") ||
+        localStorage.getItem("ito-project-v2") ||
+        localStorage.getItem("ito-project-v1");
       if (raw) {
         const s = JSON.parse(raw);
         if (valid(s.pattern)) {
@@ -190,13 +191,13 @@ export default function Home() {
           );
           setMessage(
             s.routeVersion === 4
-              ? '前回の図案と進み具合を復元しました'
-              : '図案を復元しました。運針を最適化したため、運針は最初からになります。',
+              ? "前回の図案と進み具合を復元しました"
+              : "図案を復元しました。運針を最適化したため、運針は最初からになります。",
           );
         }
       }
     } catch {
-      setMessage('保存データを読み込めませんでした');
+      setMessage("保存データを読み込めませんでした");
     }
     setReady(true);
   }, []);
@@ -204,7 +205,7 @@ export default function Home() {
     if (!ready) return;
     try {
       localStorage.setItem(
-        'ito-project-v3',
+        "ito-project-v3",
         JSON.stringify({ pattern, step, routeVersion: 4 }),
       );
       setSaved(true);
@@ -224,7 +225,7 @@ export default function Home() {
       Array.isArray(p.cells) &&
       p.cells.length === p.width * p.height &&
       p.cells.every((c) => c === null || threads.some((t) => t.id === c)) &&
-      typeof p.name === 'string'
+      typeof p.name === "string"
     );
   }
   function update(p: Pattern) {
@@ -241,9 +242,9 @@ export default function Home() {
     const ratio = img.naturalHeight / img.naturalWidth;
     const h = Math.max(1, Math.min(120, Math.round(w * ratio)));
     const actualW = Math.max(1, Math.min(120, Math.round(h / ratio)));
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     let pixels: Uint8ClampedArray;
-    if (conversionMode === 'illustration') {
+    if (conversionMode === "illustration") {
       // Bound source readback memory; nearest sampling never blends source colours.
       const scale = Math.min(
         1,
@@ -251,7 +252,7 @@ export default function Home() {
       );
       canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext("2d")!;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       pixels = representativePixels(
@@ -264,34 +265,34 @@ export default function Home() {
     } else {
       canvas.width = actualW;
       canvas.height = h;
-      const ctx = canvas.getContext('2d')!;
-      ctx.imageSmoothingEnabled = conversionMode === 'photo';
-      ctx.imageSmoothingQuality = 'high';
+      const ctx = canvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled = conversionMode === "photo";
+      ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, 0, 0, actualW, h);
       pixels = ctx.getImageData(0, 0, actualW, h).data;
     }
     const result = quantize(pixels, actualW, h, count, name);
-    return conversionMode === 'illustration'
+    return conversionMode === "illustration"
       ? simplifySpeckles(result, speckles)
       : result;
   }
   function convert(w = width, c = colors) {
     if (!source.current) return;
     try {
-      update(imagePattern(source.current, sourceName || 'マイ図案', w, c));
-      setMessage('図案を更新しました。運針は最初からになります。');
+      update(imagePattern(source.current, sourceName || "マイ図案", w, c));
+      setMessage("図案を更新しました。運針は最初からになります。");
     } catch {
-      setMessage('画像を処理できませんでした。小さい画像でお試しください。');
+      setMessage("画像を処理できませんでした。小さい画像でお試しください。");
     }
   }
   function load(file?: File) {
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) {
-      setMessage('20MB以下の画像を選んでください');
+      setMessage("20MB以下の画像を選んでください");
       return;
     }
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      setMessage('PNG・JPEG・WebPの画像を選んでください');
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setMessage("PNG・JPEG・WebPの画像を選んでください");
       return;
     }
     setBusy(true);
@@ -301,18 +302,18 @@ export default function Home() {
       try {
         source.current = img;
         setSourceName(file.name);
-        update(imagePattern(img, file.name.replace(/\.[^.]+$/, '')));
-        setMessage('画像から図案を作りました');
-        setView('pattern');
+        update(imagePattern(img, file.name.replace(/\.[^.]+$/, "")));
+        setMessage("画像から図案を作りました");
+        setView("pattern");
       } catch {
-        setMessage('画像を処理できませんでした');
+        setMessage("画像を処理できませんでした");
       } finally {
         setBusy(false);
         URL.revokeObjectURL(url);
       }
     };
     img.onerror = () => {
-      setMessage('画像を読み込めませんでした');
+      setMessage("画像を読み込めませんでした");
       setBusy(false);
       URL.revokeObjectURL(url);
     };
@@ -373,7 +374,7 @@ export default function Home() {
   }
   function beginStroke(e: ReactPointerEvent<SVGSVGElement>) {
     if (
-      view !== 'pattern' ||
+      view !== "pattern" ||
       paint === undefined ||
       e.button !== 0 ||
       !e.isPrimary ||
@@ -396,7 +397,7 @@ export default function Home() {
   function finishStroke(e: ReactPointerEvent<SVGSVGElement>) {
     const active = stroke.current;
     if (!active || active.pointerId !== e.pointerId) return;
-    if (e.type === 'pointerup') paintStroke(e);
+    if (e.type === "pointerup") paintStroke(e);
     stroke.current = null;
     if (active.changed) {
       setHistory((h) => [...h.slice(-19), active.original]);
@@ -422,7 +423,7 @@ export default function Home() {
   }
   function beginSelect(e: ReactPointerEvent<SVGSVGElement>) {
     if (
-      view !== 'pattern' ||
+      view !== "pattern" ||
       !selecting ||
       e.button !== 0 ||
       !e.isPrimary ||
@@ -442,13 +443,13 @@ export default function Home() {
     selectDrag.current = inside
       ? {
           pointerId: e.pointerId,
-          kind: 'move',
+          kind: "move",
           origin: cell,
           region: selection,
           original: pattern,
           offset: [0, 0],
         }
-      : { pointerId: e.pointerId, kind: 'draw', anchor: cell };
+      : { pointerId: e.pointerId, kind: "draw", anchor: cell };
     if (!inside) setSelection({ x: cell[0], y: cell[1], width: 1, height: 1 });
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -457,7 +458,7 @@ export default function Home() {
     if (!active || active.pointerId !== e.pointerId) return;
     const cell = pointerCellClamped(e);
     if (!cell) return;
-    if (active.kind === 'draw') {
+    if (active.kind === "draw") {
       const [ax, ay] = active.anchor;
       setSelection({
         x: Math.min(ax, cell[0]),
@@ -494,13 +495,13 @@ export default function Home() {
   function endSelect(e: ReactPointerEvent<SVGSVGElement>) {
     const active = selectDrag.current;
     if (!active || active.pointerId !== e.pointerId) return;
-    if (e.type === 'pointerup') moveSelect(e);
+    if (e.type === "pointerup") moveSelect(e);
     selectDrag.current = null;
     setDraftCells(null);
-    if (active.kind === 'move') {
+    if (active.kind === "move") {
       // An interrupted drag reverts; only a completed pointerup commits the move.
       const next =
-        e.type === 'pointerup'
+        e.type === "pointerup"
           ? moveRegion(active.original, active.region, ...active.offset)
           : active.original;
       if (next !== active.original) {
@@ -508,7 +509,7 @@ export default function Home() {
         setPattern(next);
         setStep(0);
         setMessage(
-          '選択範囲を移動しました。「一つ戻す」で取り消せます。運針は最初からになります。',
+          "選択範囲を移動しました。「一つ戻す」で取り消せます。運針は最初からになります。",
         );
       } else {
         setSelection(active.region);
@@ -519,28 +520,28 @@ export default function Home() {
   }
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  async function exportPdf(kind: 'pattern' | 'route') {
+  async function exportPdf(kind: "pattern" | "route") {
     setPdfBusy(true);
     try {
-      const { createPatternPdf } = await import('@/lib/pdf-export');
+      const { createPatternPdf } = await import("@/lib/pdf-export");
       const doc = await createPatternPdf(pattern, {
         kind,
         color:
-          pdfColor === 'all' || !palette.some((t) => t.id === pdfColor)
+          pdfColor === "all" || !palette.some((t) => t.id === pdfColor)
             ? undefined
             : pdfColor,
         onProgress: (page) => setMessage(`PDFを作成中… ${page}ページ`),
       });
       doc.save(`ito-${kind}.pdf`);
-      setMessage('PDFを保存しました');
+      setMessage("PDFを保存しました");
     } catch {
-      setMessage('PDFを作成できませんでした。運針は色を絞ってお試しください。');
+      setMessage("PDFを作成できませんでした。運針は色を絞ってお試しください。");
     } finally {
       setPdfBusy(false);
     }
@@ -550,30 +551,30 @@ export default function Home() {
       pad = 35;
     const body = pattern.cells
       .map((c, i) => {
-        if (!c) return '';
+        if (!c) return "";
         const t = threads.find((t) => t.id === c)!;
         const x = (i % pattern.width) * cell + pad,
           y = Math.floor(i / pattern.width) * cell + pad;
-        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}" stroke="#888" stroke-width=".5"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || '＋'}</text>`;
+        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}" stroke="#888" stroke-width=".5"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || "＋"}</text>`;
       })
-      .join('');
+      .join("");
     const legend = palette
       .map(
         (t, i) =>
           `<text x="35" y="${pattern.height * cell + 70 + i * 24}" font-size="15">${symbols[i]} · DMC ${t.id} · ${pattern.cells.filter((c) => c === t.id).length} stitches</text>`,
       )
-      .join('');
+      .join("");
     download(
       `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${legend}</svg>`,
-      'ito-pattern.svg',
-      'image/svg+xml',
+      "ito-pattern.svg",
+      "image/svg+xml",
     );
   }
   function ink(hex: string) {
     const n = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     return n[0] * 0.299 + n[1] * 0.587 + n[2] * 0.114 > 150
-      ? '#243533'
-      : '#fff';
+      ? "#243533"
+      : "#fff";
   }
   useEffect(() => {
     const context = (
@@ -592,12 +593,12 @@ export default function Home() {
       Promise.resolve(
         context.registerTool(
           {
-            name: 'read_stitch_guide',
-            title: '現在の運針を確認',
+            name: "read_stitch_guide",
+            title: "現在の運針を確認",
             description:
-              'Read the current pattern dimensions and exact needle entry/exit holes without changing progress.',
+              "Read the current pattern dimensions and exact needle entry/exit holes without changing progress.",
             inputSchema: {
-              type: 'object',
+              type: "object",
               properties: {},
               additionalProperties: false,
             },
@@ -605,10 +606,10 @@ export default function Home() {
             execute: (input: unknown) => {
               if (
                 !input ||
-                typeof input !== 'object' ||
+                typeof input !== "object" ||
                 Object.keys(input).length
               )
-                throw Error('Expected an empty object');
+                throw Error("Expected an empty object");
               return {
                 width: pattern.width,
                 height: pattern.height,
@@ -643,12 +644,12 @@ export default function Home() {
                 width: w,
                 height: h,
                 cells: Array.from({ length: w * h }, () => null),
-                name: '手描きの図案',
+                name: "手描きの図案",
               });
               source.current = null;
-              setSourceName('');
-              setPaint('310');
-              setView('pattern');
+              setSourceName("");
+              setPaint("310");
+              setView("pattern");
               setZoom(1);
               setMessage(
                 `${w}×${h}目のキャンバスを作りました。黒で描けます。糸色は「ほかの糸色を追加」から選べます。「一つ戻す」で前の図案に戻せます。`,
@@ -697,15 +698,49 @@ export default function Home() {
               空のキャンバスを作る
             </button>
             <p>現在の図案を置き換えます。「一つ戻す」で元に戻せます。</p>
+            <button
+              className="outline full"
+              type="button"
+              disabled={
+                !validCanvasSize ||
+                busy ||
+                (Number(canvasWidth) === pattern.width &&
+                  Number(canvasHeight) === pattern.height)
+              }
+              onClick={() => {
+                const w = Number(canvasWidth),
+                  h = Number(canvasHeight);
+                const next = resizePattern(pattern, w, h);
+                if (next === pattern) return;
+                const dropped =
+                  pattern.cells.filter(Boolean).length -
+                  next.cells.filter(Boolean).length;
+                update(next);
+                setView("pattern");
+                setMessage(
+                  `キャンバスを${pattern.width}×${pattern.height}目から${w}×${h}目に変更しました。` +
+                    (dropped > 0
+                      ? `はみ出した${dropped}目は削除されました。`
+                      : "") +
+                    "「一つ戻す」で取り消せます。運針は最初からになります。",
+                );
+              }}
+            >
+              今の図案をこのサイズに変更
+            </button>
+            <p>
+              現在は{pattern.width}×{pattern.height}
+              目。ドットを残したまま右・下を広げ、または切り詰めます。
+            </p>
           </form>
           <DotTextTool
             pattern={pattern}
             onPlace={(next) => {
               update(next);
-              setView('pattern');
+              setView("pattern");
               setPaint(undefined);
               setMessage(
-                'ドット文字を配置しました。「一つ戻す」で取り消せます。',
+                "ドット文字を配置しました。「一つ戻す」で取り消せます。",
               );
             }}
           />
@@ -716,7 +751,7 @@ export default function Home() {
             hidden
             onChange={(e) => {
               load(e.target.files?.[0]);
-              e.target.value = '';
+              e.target.value = "";
             }}
           />
           <button
@@ -730,7 +765,7 @@ export default function Home() {
             disabled={busy}
           >
             <Upload size={23} />
-            <strong>{busy ? '変換しています…' : '画像をアップロード'}</strong>
+            <strong>{busy ? "変換しています…" : "画像をアップロード"}</strong>
           </button>
           <div className="conversion-controls">
             <label htmlFor="conversion-mode">画像の変換方法</label>
@@ -752,7 +787,7 @@ export default function Home() {
                 写真向け · なめらか
               </NativeSelectOption>
             </NativeSelect>
-            {conversionMode === 'illustration' && (
+            {conversionMode === "illustration" && (
               <>
                 <label htmlFor="speckles">近い色の小さな点を整理</label>
                 <NativeSelect
@@ -772,7 +807,7 @@ export default function Home() {
           </div>
           <div className="setting">
             <label id="size-label">
-              横の目数{' '}
+              横の目数{" "}
               <strong>
                 {width}
                 <small> 目</small>
@@ -789,7 +824,7 @@ export default function Home() {
           </div>
           <div className="setting">
             <label id="color-label">
-              使う色数の上限{' '}
+              使う色数の上限{" "}
               <strong>
                 {colors}
                 <small> 色</small>
@@ -816,7 +851,7 @@ export default function Home() {
             <button
               className="outline full"
               disabled={pdfBusy}
-              onClick={() => void exportPdf('pattern')}
+              onClick={() => void exportPdf("pattern")}
             >
               図案PDFを保存
             </button>
@@ -824,9 +859,9 @@ export default function Home() {
             <NativeSelect
               id="pdf-color"
               value={
-                pdfColor === 'all' || palette.some((t) => t.id === pdfColor)
+                pdfColor === "all" || palette.some((t) => t.id === pdfColor)
                   ? pdfColor
-                  : 'all'
+                  : "all"
               }
               onChange={(e) => setPdfColor(e.target.value)}
             >
@@ -840,9 +875,9 @@ export default function Home() {
             <button
               className="outline full"
               disabled={pdfBusy || !palette.length}
-              onClick={() => void exportPdf('route')}
+              onClick={() => void exportPdf("route")}
             >
-              {pdfBusy ? 'PDFを作成中…' : '運針PDFを保存'}
+              {pdfBusy ? "PDFを作成中…" : "運針PDFを保存"}
             </button>
             <button className="text-button" onClick={exportSvg}>
               図案SVGを保存
@@ -857,10 +892,10 @@ export default function Home() {
             {palette.map((t, i) => (
               <button
                 key={t.id}
-                className={'thread ' + (paint === t.id ? 'selected' : '')}
+                className={"thread " + (paint === t.id ? "selected" : "")}
                 onClick={() => {
                   setPaint(paint === t.id ? undefined : t.id);
-                  setView('pattern');
+                  setView("pattern");
                 }}
               >
                 <span
@@ -884,18 +919,18 @@ export default function Home() {
             <label htmlFor="merge-from">置き換える色</label>
             <NativeSelect
               id="merge-from"
-              value={mergeSource?.id || ''}
+              value={mergeSource?.id || ""}
               disabled={palette.length < 2}
               onChange={(e) => {
                 setMergeFrom(e.target.value);
-                setView('pattern');
+                setView("pattern");
                 setPaint(undefined);
               }}
             >
               <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
               {palette.map((t, i) => (
                 <NativeSelectOption key={t.id} value={t.id}>
-                  {symbols[i]} · DMC {t.id} ·{' '}
+                  {symbols[i]} · DMC {t.id} ·{" "}
                   {pattern.cells.filter((c) => c === t.id).length}目
                 </NativeSelectOption>
               ))}
@@ -903,7 +938,7 @@ export default function Home() {
             <label htmlFor="merge-to">残す色</label>
             <NativeSelect
               id="merge-to"
-              value={mergeTarget?.id || ''}
+              value={mergeTarget?.id || ""}
               disabled={palette.length < 2}
               onChange={(e) => setMergeTo(e.target.value)}
             >
@@ -945,7 +980,7 @@ export default function Home() {
               disabled={!canMerge}
               onClick={mergeColors}
             >
-              {canMerge ? `${mergeCount}目をまとめる` : '色を選んでまとめる'}
+              {canMerge ? `${mergeCount}目をまとめる` : "色を選んでまとめる"}
             </button>
           </section>
           <details>
@@ -961,7 +996,7 @@ export default function Home() {
                     style={{ background: t.hex, color: ink(t.hex) }}
                     onClick={() => {
                       setPaint(t.id);
-                      setView('pattern');
+                      setView("pattern");
                     }}
                   >
                     {t.id}
@@ -986,7 +1021,7 @@ export default function Home() {
               </TabsList>
             </Tabs>
           </div>
-          {view === 'guide' ? (
+          {view === "guide" ? (
             <RouteOverview pattern={pattern} />
           ) : (
             <>
@@ -995,10 +1030,10 @@ export default function Home() {
                   <RadioGroup
                     className="paint-color-options"
                     aria-label="塗る色"
-                    value={paint || ''}
+                    value={paint || ""}
                     onValueChange={(value) => {
                       setPaint(String(value));
-                      setView('pattern');
+                      setView("pattern");
                     }}
                   >
                     {palette.map((t, i) => (
@@ -1021,12 +1056,12 @@ export default function Home() {
                   </RadioGroup>
                   <button
                     type="button"
-                    className={paint === null ? 'active' : ''}
+                    className={paint === null ? "active" : ""}
                     aria-pressed={paint === null}
                     title="ドラッグして目を消す"
                     onClick={() => {
                       setPaint(paint === null ? undefined : null);
-                      setView('pattern');
+                      setView("pattern");
                     }}
                   >
                     <Eraser size={17} />
@@ -1034,7 +1069,7 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
-                    className={selecting ? 'active' : ''}
+                    className={selecting ? "active" : ""}
                     aria-pressed={selecting}
                     title="ドラッグで範囲を選び、選択範囲をドラッグして移動"
                     onClick={() => {
@@ -1044,10 +1079,10 @@ export default function Home() {
                       if (next) {
                         setPaint(undefined);
                         setMessage(
-                          'ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。',
+                          "ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。",
                         );
                       }
-                      setView('pattern');
+                      setView("pattern");
                     }}
                   >
                     <BoxSelect size={17} />
@@ -1095,7 +1130,7 @@ export default function Home() {
                     <ZoomIn size={17} />
                   </button>
                   <button
-                    className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
+                    className={"symbol-toggle " + (showSymbols ? "on" : "")}
                     aria-pressed={showSymbols}
                     onClick={() => setShowSymbols(!showSymbols)}
                   >
@@ -1123,15 +1158,15 @@ export default function Home() {
                     onLostPointerCapture={selecting ? endSelect : finishStroke}
                     style={{
                       touchAction:
-                        view === 'pattern' && (paint !== undefined || selecting)
-                          ? 'none'
-                          : 'auto',
+                        view === "pattern" && (paint !== undefined || selecting)
+                          ? "none"
+                          : "auto",
                     }}
                     className={
-                      'pattern-grid ' +
-                      (view === 'pattern' && (paint !== undefined || selecting)
-                        ? 'painting'
-                        : '')
+                      "pattern-grid " +
+                      (view === "pattern" && (paint !== undefined || selecting)
+                        ? "painting"
+                        : "")
                     }
                     viewBox={`-2 -2 ${pattern.width + 4} ${pattern.height + 4}`}
                     role="img"
@@ -1149,7 +1184,7 @@ export default function Home() {
                       const x = i % pattern.width,
                         y = Math.floor(i / pattern.width);
                       const faded =
-                        view === 'step' && current && c !== current.color;
+                        view === "step" && current && c !== current.color;
                       return (
                         <g key={i} opacity={faded ? 0.2 : 1}>
                           <rect
@@ -1157,7 +1192,7 @@ export default function Home() {
                             y={y}
                             width={1}
                             height={1}
-                            fill={t?.hex || '#fffefa'}
+                            fill={t?.hex || "#fffefa"}
                           />
                           {t &&
                             (showSymbols ? (
@@ -1169,7 +1204,7 @@ export default function Home() {
                                 fill={ink(t.hex)}
                                 fontFamily="monospace"
                               >
-                                {symbols[palette.indexOf(t)] || '＋'}
+                                {symbols[palette.indexOf(t)] || "＋"}
                               </text>
                             ) : (
                               <path
@@ -1185,18 +1220,18 @@ export default function Home() {
                     })}
                     {Array.from({ length: pattern.width + 1 }, (_, x) => (
                       <path
-                        key={'x' + x}
+                        key={"x" + x}
                         d={`M${x} 0V${pattern.height}`}
-                        stroke={x % 10 === 0 ? '#6f807d' : '#b7beb5'}
+                        stroke={x % 10 === 0 ? "#6f807d" : "#b7beb5"}
                         strokeWidth={x % 10 === 0 ? 0.055 : 0.018}
                         pointerEvents="none"
                       />
                     ))}
                     {Array.from({ length: pattern.height + 1 }, (_, y) => (
                       <path
-                        key={'y' + y}
+                        key={"y" + y}
                         d={`M0 ${y}H${pattern.width}`}
-                        stroke={y % 10 === 0 ? '#6f807d' : '#b7beb5'}
+                        stroke={y % 10 === 0 ? "#6f807d" : "#b7beb5"}
                         strokeWidth={y % 10 === 0 ? 0.055 : 0.018}
                         pointerEvents="none"
                       />
@@ -1205,7 +1240,7 @@ export default function Home() {
                       { length: Math.floor(pattern.width / 5) + 1 },
                       (_, i) => (
                         <text
-                          key={'nx' + i}
+                          key={"nx" + i}
                           x={i * 5}
                           y={-0.65}
                           fontSize=".6"
@@ -1220,7 +1255,7 @@ export default function Home() {
                       { length: Math.floor(pattern.height / 5) + 1 },
                       (_, i) => (
                         <text
-                          key={'ny' + i}
+                          key={"ny" + i}
                           x={-1}
                           y={i * 5 + 0.2}
                           fontSize=".6"
@@ -1231,12 +1266,12 @@ export default function Home() {
                         </text>
                       ),
                     )}
-                    {view === 'pattern' &&
+                    {view === "pattern" &&
                       mergeSource &&
                       pattern.cells.map((c, i) =>
                         c === mergeSource.id ? (
                           <rect
-                            key={'merge-' + i}
+                            key={"merge-" + i}
                             x={(i % pattern.width) + 0.07}
                             y={Math.floor(i / pattern.width) + 0.07}
                             width={0.86}
@@ -1248,7 +1283,7 @@ export default function Home() {
                           />
                         ) : null,
                       )}
-                    {view === 'pattern' && selecting && selection && (
+                    {view === "pattern" && selecting && selection && (
                       <rect
                         x={selection.x + 0.05}
                         y={selection.y + 0.05}
@@ -1261,7 +1296,7 @@ export default function Home() {
                         pointerEvents="none"
                       />
                     )}
-                    {view === 'step' && current && step < sequence.length && (
+                    {view === "step" && current && step < sequence.length && (
                       <g pointerEvents="none">
                         <rect
                           x={(current.cell % pattern.width) - 0.12}
@@ -1295,7 +1330,7 @@ export default function Home() {
               </div>
             </>
           )}
-          {view === 'step' && (
+          {view === "step" && (
             <div className="step-navigation">
               <button
                 className="outline"
@@ -1309,14 +1344,14 @@ export default function Home() {
                 {current && step < sequence.length ? (
                   <>
                     <strong>
-                      {step + 1} / {sequence.length} · DMC {current.color} ·{' '}
+                      {step + 1} / {sequence.length} · DMC {current.color} ·{" "}
                       {labels[current.kind]}
                     </strong>
                     <span>
-                      出す穴 ({current.from.join(', ')}) → 入れる穴 (
-                      {current.to.join(', ')})
+                      出す穴 ({current.from.join(", ")}) → 入れる穴 (
+                      {current.to.join(", ")})
                     </span>
-                    {current.kind === 'cut' && (
+                    {current.kind === "cut" && (
                       <span>
                         裏で糸を始末し、新しい糸を固定して再開します。
                       </span>
@@ -1325,8 +1360,8 @@ export default function Home() {
                 ) : (
                   <strong>
                     {sequence.length
-                      ? '完成です。最後に裏で糸を始末します。'
-                      : '色のあるマスを作ると運針が表示されます。'}
+                      ? "完成です。最後に裏で糸を始末します。"
+                      : "色のあるマスを作ると運針が表示されます。"}
                   </strong>
                 )}
               </div>
@@ -1344,21 +1379,21 @@ export default function Home() {
       </main>
       <PatternPreview pattern={pattern} cells={draftCells || pattern.cells} />
       <footer ref={footer}>
-        <span>{saved ? 'この端末に自動保存' : '端末内で画像を処理'}</span>
+        <span>{saved ? "この端末に自動保存" : "端末内で画像を処理"}</span>
         <output
           className="status"
           title={
-            message || 'まずはサンプルで、針の道すじを試してみてください。'
+            message || "まずはサンプルで、針の道すじを試してみてください。"
           }
         >
-          {message || 'まずはサンプルで、針の道すじを試してみてください。'}
+          {message || "まずはサンプルで、針の道すじを試してみてください。"}
         </output>
         <button
           onClick={() => {
             source.current = null;
-            setSourceName('');
+            setSourceName("");
             update(sample());
-            setMessage('サンプルに切り替えました');
+            setMessage("サンプルに切り替えました");
           }}
         >
           サンプルを開く
@@ -1367,8 +1402,8 @@ export default function Home() {
           onClick={() =>
             download(
               JSON.stringify({ pattern, step, routeVersion: 4 }),
-              'ito-project.json',
-              'application/json',
+              "ito-project.json",
+              "application/json",
             )
           }
         >
@@ -1390,7 +1425,7 @@ export default function Home() {
                 if (!valid(s.pattern)) throw Error();
                 update(s.pattern);
                 source.current = null;
-                setSourceName('');
+                setSourceName("");
                 setStep(
                   Math.max(
                     0,
@@ -1402,9 +1437,9 @@ export default function Home() {
                     ),
                   ),
                 );
-                setMessage('作業を読み込みました');
+                setMessage("作業を読み込みました");
               } catch {
-                setMessage('この作業ファイルは読み込めません');
+                setMessage("この作業ファイルは読み込めません");
               }
             }}
           />
@@ -1419,7 +1454,7 @@ function PatternPreview({
   cells,
 }: {
   pattern: Pattern;
-  cells: Pattern['cells'];
+  cells: Pattern["cells"];
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const count = 14;
@@ -1429,17 +1464,17 @@ function PatternPreview({
     const cellSize = 12;
     target.width = pattern.width * cellSize;
     target.height = pattern.height * cellSize;
-    const ctx = target.getContext('2d');
+    const ctx = target.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, target.width, target.height);
     ctx.lineWidth = 2.4;
-    ctx.lineCap = 'round';
+    ctx.lineCap = "round";
     const colors = new Map(threads.map((t) => [t.id, t.hex]));
     cells.forEach((color, i) => {
       if (!color) return;
       const x = (i % pattern.width) * cellSize;
       const y = Math.floor(i / pattern.width) * cellSize;
-      ctx.strokeStyle = colors.get(color) || '#ffffff';
+      ctx.strokeStyle = colors.get(color) || "#ffffff";
       // Lower backslash, then upper slash, matching the actual stitch order.
       ctx.beginPath();
       ctx.moveTo(x + 2, y + 2);
@@ -1467,8 +1502,8 @@ function PatternPreview({
           />
         </div>
         <p title="14ctの布での完成サイズ目安です。画面上の大きさは端末によって変わります。">
-          {((pattern.width / count) * 2.54).toFixed(1)} ×{' '}
-          {((pattern.height / count) * 2.54).toFixed(1)} cm{' '}
+          {((pattern.width / count) * 2.54).toFixed(1)} ×{" "}
+          {((pattern.height / count) * 2.54).toFixed(1)} cm{" "}
           <span>14ct目安</span>
         </p>
       </div>
