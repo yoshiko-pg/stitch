@@ -543,7 +543,7 @@ export default function Home() {
       setPdfBusy(false);
     }
   }
-  function exportSvg() {
+  function patternSvg() {
     const cell = 22,
       pad = 35;
     const body = pattern.cells
@@ -561,11 +561,48 @@ export default function Home() {
           `<text x="35" y="${pattern.height * cell + 70 + i * 24}" font-size="15">${symbols[i]} · DMC ${t.id} · ${pattern.cells.filter((c) => c === t.id).length} stitches</text>`,
       )
       .join("");
-    download(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${legend}</svg>`,
-      "ito-pattern.svg",
-      "image/svg+xml",
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${legend}</svg>`;
+  }
+  function exportSvg() {
+    download(patternSvg(), "ito-pattern.svg", "image/svg+xml");
+  }
+  function exportPng() {
+    const url = URL.createObjectURL(
+      new Blob([patternSvg()], { type: "image/svg+xml" }),
     );
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth * scale;
+      canvas.height = img.naturalHeight * scale;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        setMessage("図案PNGを作成できませんでした");
+        return;
+      }
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          setMessage("図案PNGを作成できませんでした");
+          return;
+        }
+        const pngUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = pngUrl;
+        a.download = "ito-pattern.png";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
+        setMessage("図案PNGを保存しました");
+      }, "image/png");
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setMessage("図案PNGを作成できませんでした");
+    };
+    img.src = url;
   }
   function ink(hex: string) {
     const n = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -930,6 +967,7 @@ export default function Home() {
                   >
                     {pdfBusy ? "PDFを作成中…" : "運針PDFを保存"}
                   </button>
+                  <button onClick={exportPng}>図案PNGを保存</button>
                   <button onClick={exportSvg}>図案SVGを保存</button>
                   <button
                     onClick={() =>
