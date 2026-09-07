@@ -97,22 +97,6 @@ export default function Home() {
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
   const board = useRef<SVGSVGElement>(null);
-  const shell = useRef<HTMLDivElement>(null);
-  const footer = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const element = footer.current;
-    const root = shell.current;
-    if (!element || !root) return;
-    const measure = () =>
-      root.style.setProperty(
-        "--footer-height",
-        `${Math.ceil(element.getBoundingClientRect().height)}px`,
-      );
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
 
   const [draftCells, setDraftCells] = useState<(string | null)[] | null>(null);
   const stroke = useRef<{
@@ -640,7 +624,7 @@ export default function Home() {
     return () => lifecycle.abort();
   }, [pattern, step, current, sequence.length]);
   return (
-    <div className="app-shell" ref={shell}>
+    <div className="app-shell">
       <main className="workspace">
         <aside className="settings" aria-label="図案の設定">
           <Tabs value={tool} onValueChange={(v) => setTool(String(v))}>
@@ -899,6 +883,117 @@ export default function Home() {
                 <TabsTrigger value="step">ひと針ずつ</TabsTrigger>
               </TabsList>
             </Tabs>
+            <output
+              className="status"
+              title={
+                message || "まずはサンプルで、針の道すじを試してみてください。"
+              }
+            >
+              {message || "まずはサンプルで、針の道すじを試してみてください。"}
+            </output>
+            <Popover>
+              <PopoverTrigger className="save-trigger">
+                <Save size={15} />
+                保存
+              </PopoverTrigger>
+              <PopoverContent align="end">
+                <div className="save-menu">
+                  <button
+                    disabled={pdfBusy}
+                    onClick={() => void exportPdf("pattern")}
+                  >
+                    図案PDFを保存
+                  </button>
+                  <label htmlFor="pdf-color">運針PDFに含める色</label>
+                  <NativeSelect
+                    id="pdf-color"
+                    value={
+                      pdfColor === "all" ||
+                      palette.some((t) => t.id === pdfColor)
+                        ? pdfColor
+                        : "all"
+                    }
+                    onChange={(e) => setPdfColor(e.target.value)}
+                  >
+                    <NativeSelectOption value="all">
+                      すべての色
+                    </NativeSelectOption>
+                    {palette.map((t, i) => (
+                      <NativeSelectOption key={t.id} value={t.id}>
+                        {symbols[i]} · DMC {t.id}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                  <button
+                    disabled={pdfBusy || !palette.length}
+                    onClick={() => void exportPdf("route")}
+                  >
+                    {pdfBusy ? "PDFを作成中…" : "運針PDFを保存"}
+                  </button>
+                  <button onClick={exportSvg}>図案SVGを保存</button>
+                  <button
+                    onClick={() =>
+                      download(
+                        JSON.stringify({ pattern, step, routeVersion: 4 }),
+                        "ito-project.json",
+                        "application/json",
+                      )
+                    }
+                  >
+                    作業データを保存
+                  </button>
+                  <label className="import-label">
+                    作業データを読み込む
+                    <input
+                      type="file"
+                      accept=".json"
+                      hidden
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        try {
+                          if (f.size > 2e6) throw Error();
+                          const s = JSON.parse(await f.text());
+                          if (!valid(s.pattern)) throw Error();
+                          update(s.pattern);
+                          source.current = null;
+                          setSourceName("");
+                          setStep(
+                            Math.max(
+                              0,
+                              Math.min(
+                                s.routeVersion === 4
+                                  ? Math.floor(Number(s.step)) || 0
+                                  : 0,
+                                route(s.pattern).length,
+                              ),
+                            ),
+                          );
+                          setMessage("作業を読み込みました");
+                        } catch {
+                          setMessage("この作業ファイルは読み込めません");
+                        }
+                      }}
+                    />
+                  </label>
+                  <button
+                    onClick={() => {
+                      source.current = null;
+                      setSourceName("");
+                      update(sample());
+                      setMessage("サンプルに切り替えました");
+                    }}
+                  >
+                    サンプルを開く
+                  </button>
+                  <p>
+                    {saved
+                      ? "この端末に自動保存されています"
+                      : "画像は端末内で処理されます"}
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           {view === "guide" ? (
             <RouteOverview pattern={pattern} />
@@ -1354,100 +1449,6 @@ export default function Home() {
         </section>
       </main>
       <PatternPreview pattern={pattern} cells={draftCells || pattern.cells} />
-      <footer ref={footer}>
-        <span>{saved ? "この端末に自動保存" : "端末内で画像を処理"}</span>
-        <output
-          className="status"
-          title={
-            message || "まずはサンプルで、針の道すじを試してみてください。"
-          }
-        >
-          {message || "まずはサンプルで、針の道すじを試してみてください。"}
-        </output>
-        <button
-          onClick={() => {
-            source.current = null;
-            setSourceName("");
-            update(sample());
-            setMessage("サンプルに切り替えました");
-          }}
-        >
-          サンプルを開く
-        </button>
-        <button disabled={pdfBusy} onClick={() => void exportPdf("pattern")}>
-          図案PDF
-        </button>
-        <NativeSelect
-          id="pdf-color"
-          aria-label="運針PDFに含める色"
-          value={
-            pdfColor === "all" || palette.some((t) => t.id === pdfColor)
-              ? pdfColor
-              : "all"
-          }
-          onChange={(e) => setPdfColor(e.target.value)}
-        >
-          <NativeSelectOption value="all">すべての色</NativeSelectOption>
-          {palette.map((t, i) => (
-            <NativeSelectOption key={t.id} value={t.id}>
-              {symbols[i]} · DMC {t.id}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-        <button
-          disabled={pdfBusy || !palette.length}
-          onClick={() => void exportPdf("route")}
-        >
-          {pdfBusy ? "PDF作成中…" : "運針PDF"}
-        </button>
-        <button onClick={exportSvg}>図案SVG</button>
-        <button
-          onClick={() =>
-            download(
-              JSON.stringify({ pattern, step, routeVersion: 4 }),
-              "ito-project.json",
-              "application/json",
-            )
-          }
-        >
-          <Save size={14} />
-          作業を保存
-        </button>
-        <label className="import-label">
-          作業を読み込む
-          <input
-            type="file"
-            accept=".json"
-            hidden
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              try {
-                if (f.size > 2e6) throw Error();
-                const s = JSON.parse(await f.text());
-                if (!valid(s.pattern)) throw Error();
-                update(s.pattern);
-                source.current = null;
-                setSourceName("");
-                setStep(
-                  Math.max(
-                    0,
-                    Math.min(
-                      s.routeVersion === 4
-                        ? Math.floor(Number(s.step)) || 0
-                        : 0,
-                      route(s.pattern).length,
-                    ),
-                  ),
-                );
-                setMessage("作業を読み込みました");
-              } catch {
-                setMessage("この作業ファイルは読み込めません");
-              }
-            }}
-          />
-        </label>
-      </footer>
     </div>
   );
 }
