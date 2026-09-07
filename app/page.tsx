@@ -552,16 +552,28 @@ export default function Home() {
         const t = threads.find((t) => t.id === c)!;
         const x = (i % pattern.width) * cell + pad,
           y = Math.floor(i / pattern.width) * cell + pad;
-        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}" stroke="#888" stroke-width=".5"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || "＋"}</text>`;
+        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || "＋"}</text>`;
       })
       .join("");
+    const grid = [
+      ...Array.from(
+        { length: pattern.width + 1 },
+        (_, x) =>
+          `<path d="M${x * cell + pad} ${pad}V${pattern.height * cell + pad}" stroke="${x % 10 === 0 ? "#6f807d" : "#b7beb5"}" stroke-width="${x % 10 === 0 ? 1.4 : 0.5}"/>`,
+      ),
+      ...Array.from(
+        { length: pattern.height + 1 },
+        (_, y) =>
+          `<path d="M${pad} ${y * cell + pad}H${pattern.width * cell + pad}" stroke="${y % 10 === 0 ? "#6f807d" : "#b7beb5"}" stroke-width="${y % 10 === 0 ? 1.4 : 0.5}"/>`,
+      ),
+    ].join("");
     const legend = palette
       .map(
         (t, i) =>
           `<text x="35" y="${pattern.height * cell + 70 + i * 24}" font-size="15">${symbols[i]} · DMC ${t.id} · ${pattern.cells.filter((c) => c === t.id).length} stitches</text>`,
       )
       .join("");
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${legend}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${grid}${legend}</svg>`;
   }
   function exportSvg() {
     download(patternSvg(), "ito-pattern.svg", "image/svg+xml");
