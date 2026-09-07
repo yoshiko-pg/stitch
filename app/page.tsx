@@ -22,6 +22,7 @@ import {
   ZoomOut,
   Undo2,
   Eraser,
+  BoxSelect,
   Save,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -38,7 +39,9 @@ import {
   sample,
   quantize,
   trimPattern,
+  moveRegion,
   type Pattern,
+  type Region,
 } from '@/lib/stitch';
 import {
   representativePixels,
@@ -111,6 +114,30 @@ export default function Home() {
     last: [number, number] | null;
     changed: boolean;
   } | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selection, setSelection] = useState<Region | null>(null);
+  const selectDrag = useRef<
+    | { pointerId: number; kind: 'draw'; anchor: [number, number] }
+    | {
+        pointerId: number;
+        kind: 'move';
+        origin: [number, number];
+        region: Region;
+        original: Pattern;
+        offset: [number, number];
+      }
+    | null
+  >(null);
+  // A new paint tool or a resized pattern makes the current selection stale.
+  useEffect(() => {
+    if (paint !== undefined) {
+      setSelecting(false);
+      setSelection(null);
+    }
+  }, [paint]);
+  useEffect(() => {
+    setSelection(null);
+  }, [pattern.width, pattern.height]);
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
   const sequence = useMemo(() => route(pattern), [pattern]);
@@ -377,6 +404,116 @@ export default function Home() {
       setStep(0);
     }
     setDraftCells(null);
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+  function pointerCellClamped(
+    e: ReactPointerEvent<SVGSVGElement>,
+  ): [number, number] | null {
+    const matrix = e.currentTarget.getScreenCTM();
+    if (!matrix) return null;
+    const point = new DOMPoint(e.clientX, e.clientY).matrixTransform(
+      matrix.inverse(),
+    );
+    return [
+      Math.max(0, Math.min(pattern.width - 1, Math.floor(point.x))),
+      Math.max(0, Math.min(pattern.height - 1, Math.floor(point.y))),
+    ];
+  }
+  function beginSelect(e: ReactPointerEvent<SVGSVGElement>) {
+    if (
+      view !== 'pattern' ||
+      !selecting ||
+      e.button !== 0 ||
+      !e.isPrimary ||
+      selectDrag.current ||
+      !pointerCell(e)
+    )
+      return;
+    const cell = pointerCellClamped(e);
+    if (!cell) return;
+    e.preventDefault();
+    const inside =
+      selection &&
+      cell[0] >= selection.x &&
+      cell[0] < selection.x + selection.width &&
+      cell[1] >= selection.y &&
+      cell[1] < selection.y + selection.height;
+    selectDrag.current = inside
+      ? {
+          pointerId: e.pointerId,
+          kind: 'move',
+          origin: cell,
+          region: selection,
+          original: pattern,
+          offset: [0, 0],
+        }
+      : { pointerId: e.pointerId, kind: 'draw', anchor: cell };
+    if (!inside) setSelection({ x: cell[0], y: cell[1], width: 1, height: 1 });
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function moveSelect(e: ReactPointerEvent<SVGSVGElement>) {
+    const active = selectDrag.current;
+    if (!active || active.pointerId !== e.pointerId) return;
+    const cell = pointerCellClamped(e);
+    if (!cell) return;
+    if (active.kind === 'draw') {
+      const [ax, ay] = active.anchor;
+      setSelection({
+        x: Math.min(ax, cell[0]),
+        y: Math.min(ay, cell[1]),
+        width: Math.abs(cell[0] - ax) + 1,
+        height: Math.abs(cell[1] - ay) + 1,
+      });
+      return;
+    }
+    // Keep the whole region on the canvas so no stitch is dropped off an edge.
+    const dx = Math.max(
+      -active.region.x,
+      Math.min(
+        pattern.width - active.region.x - active.region.width,
+        cell[0] - active.origin[0],
+      ),
+    );
+    const dy = Math.max(
+      -active.region.y,
+      Math.min(
+        pattern.height - active.region.y - active.region.height,
+        cell[1] - active.origin[1],
+      ),
+    );
+    if (dx === active.offset[0] && dy === active.offset[1]) return;
+    active.offset = [dx, dy];
+    setDraftCells(moveRegion(active.original, active.region, dx, dy).cells);
+    setSelection({
+      ...active.region,
+      x: active.region.x + dx,
+      y: active.region.y + dy,
+    });
+  }
+  function endSelect(e: ReactPointerEvent<SVGSVGElement>) {
+    const active = selectDrag.current;
+    if (!active || active.pointerId !== e.pointerId) return;
+    if (e.type === 'pointerup') moveSelect(e);
+    selectDrag.current = null;
+    setDraftCells(null);
+    if (active.kind === 'move') {
+      // An interrupted drag reverts; only a completed pointerup commits the move.
+      const next =
+        e.type === 'pointerup'
+          ? moveRegion(active.original, active.region, ...active.offset)
+          : active.original;
+      if (next !== active.original) {
+        setHistory((h) => [...h.slice(-19), active.original]);
+        setPattern(next);
+        setStep(0);
+        setMessage(
+          '選択範囲を移動しました。「一つ戻す」で取り消せます。運針は最初からになります。',
+        );
+      } else {
+        setSelection(active.region);
+      }
+    }
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
@@ -896,6 +1033,27 @@ export default function Home() {
                     消しゴム
                   </button>
                   <button
+                    type="button"
+                    className={selecting ? 'active' : ''}
+                    aria-pressed={selecting}
+                    title="ドラッグで範囲を選び、選択範囲をドラッグして移動"
+                    onClick={() => {
+                      const next = !selecting;
+                      setSelecting(next);
+                      setSelection(null);
+                      if (next) {
+                        setPaint(undefined);
+                        setMessage(
+                          'ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。',
+                        );
+                      }
+                      setView('pattern');
+                    }}
+                  >
+                    <BoxSelect size={17} />
+                    範囲選択
+                  </button>
+                  <button
                     aria-label="一つ戻す"
                     disabled={!history.length}
                     onClick={() => {
@@ -958,20 +1116,20 @@ export default function Home() {
                 >
                   <svg
                     ref={board}
-                    onPointerDown={beginStroke}
-                    onPointerMove={paintStroke}
-                    onPointerUp={finishStroke}
-                    onPointerCancel={finishStroke}
-                    onLostPointerCapture={finishStroke}
+                    onPointerDown={selecting ? beginSelect : beginStroke}
+                    onPointerMove={selecting ? moveSelect : paintStroke}
+                    onPointerUp={selecting ? endSelect : finishStroke}
+                    onPointerCancel={selecting ? endSelect : finishStroke}
+                    onLostPointerCapture={selecting ? endSelect : finishStroke}
                     style={{
                       touchAction:
-                        view === 'pattern' && paint !== undefined
+                        view === 'pattern' && (paint !== undefined || selecting)
                           ? 'none'
                           : 'auto',
                     }}
                     className={
                       'pattern-grid ' +
-                      (view === 'pattern' && paint !== undefined
+                      (view === 'pattern' && (paint !== undefined || selecting)
                         ? 'painting'
                         : '')
                     }
@@ -1090,6 +1248,19 @@ export default function Home() {
                           />
                         ) : null,
                       )}
+                    {view === 'pattern' && selecting && selection && (
+                      <rect
+                        x={selection.x + 0.05}
+                        y={selection.y + 0.05}
+                        width={selection.width - 0.1}
+                        height={selection.height - 0.1}
+                        fill="#16a08514"
+                        stroke="#0d7a66"
+                        strokeWidth=".12"
+                        strokeDasharray=".34 .2"
+                        pointerEvents="none"
+                      />
+                    )}
                     {view === 'step' && current && step < sequence.length && (
                       <g pointerEvents="none">
                         <rect

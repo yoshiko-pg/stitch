@@ -69,6 +69,34 @@ export function trimPattern(p: Pattern): Pattern {
     cells.push(...p.cells.slice(y * p.width + left, y * p.width + right + 1));
   return { ...p, width: right - left + 1, height: bottom - top + 1, cells };
 }
+export type Region = { x: number; y: number; width: number; height: number };
+/** Shift every stitch inside the region; vacated cells empty, covered cells are overwritten. */
+export function moveRegion(
+  p: Pattern,
+  region: Region,
+  dx: number,
+  dy: number,
+): Pattern {
+  if (dx === 0 && dy === 0) return p;
+  const cells = [...p.cells];
+  const moved: [number, number, string][] = [];
+  for (let y = region.y; y < region.y + region.height; y++)
+    for (let x = region.x; x < region.x + region.width; x++) {
+      const color = p.cells[y * p.width + x];
+      if (color === null) continue;
+      cells[y * p.width + x] = null;
+      moved.push([x + dx, y + dy, color]);
+    }
+  let changed = false;
+  for (const [x, y, color] of moved) {
+    if (x < 0 || y < 0 || x >= p.width || y >= p.height) continue;
+    const cell = y * p.width + x;
+    if (p.cells[cell] !== color) changed = true;
+    cells[cell] = color;
+  }
+  if (!changed && cells.every((c, i) => c === p.cells[i])) return p;
+  return { ...p, cells };
+}
 export type Stitch = {
   color: string;
   cell: number;
