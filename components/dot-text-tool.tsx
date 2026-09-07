@@ -1,30 +1,28 @@
-'use client';
+"use client";
 // Font loading and rasterization synchronize the preview with browser resources.
 /* oxlint-disable react/react-compiler */
 // The preview is a dynamically generated SVG, not an external image.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
-import { useEffect, useRef, useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useRef, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   NativeSelect,
   NativeSelectOption,
-} from '@/components/ui/native-select';
-import { threads, type Pattern } from '@/lib/stitch';
-import { placeDotText, rasterizeDotText, type DotText } from '@/lib/dot-text';
+} from "@/components/ui/native-select";
+import { threads, type Pattern } from "@/lib/stitch";
+import { placeDotText, rasterizeDotText, type DotText } from "@/lib/dot-text";
 
 const fonts = [
   {
-    label: 'ＫＦひま字ドット',
-    family: 'ItoKFhimaji',
-    local: 'KFhimajiDOT',
-    size: 16,
+    label: "ＫＦひま字ドット",
+    family: "ItoKFhimaji",
+    local: "KFhimajiDOT",
   },
   {
-    label: 'ノスタルドット M+H 10',
-    family: 'ItoNosutaru',
-    local: 'Nosutaru-dotMPlusH-10-Regular',
-    size: 10,
+    label: "ノスタルドット M+H 10",
+    family: "ItoNosutaru",
+    local: "Nosutaru-dotMPlusH-10-Regular",
   },
 ];
 
@@ -36,23 +34,21 @@ export function DotTextTool({
   onPlace: (pattern: Pattern) => void;
 }) {
   const [fontIndex, setFontIndex] = useState(0);
-  const [text, setText] = useState('');
-  const [size, setSize] = useState('16');
-  const [scale, setScale] = useState('1');
-  const [x, setX] = useState('1');
-  const [y, setY] = useState('1');
-  const [color, setColor] = useState('310');
-  const [revision, setRevision] = useState(0);
+  const [text, setText] = useState("");
+  const [size, setSize] = useState("12");
+  const [scale, setScale] = useState("1");
+  const [x, setX] = useState("1");
+  const [y, setY] = useState("1");
+  const [color, setColor] = useState("310");
   const [preview, setPreview] = useState<DotText | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const faces = useRef(new Map<string, FontFace>());
-  const uploadId = useRef(0);
   const selected = fonts[fontIndex];
   useEffect(() => {
     let cancelled = false;
     setPreview(null);
-    setError('');
+    setError("");
     setLoading(false);
     if (!text.trim()) return;
     if (
@@ -60,7 +56,7 @@ export function DotTextTool({
       Number(size) < 8 ||
       Number(size) > 48
     ) {
-      setError('文字サイズは8〜48で指定してください。');
+      setError("文字サイズは8〜48で指定してください。");
       return;
     }
     setLoading(true);
@@ -83,9 +79,7 @@ export function DotTextTool({
         if (!cancelled) setPreview(result);
       } catch {
         if (!cancelled)
-          setError(
-            '文字を表示できません。フォントファイルを読み込むか、文字数・サイズを減らしてください。',
-          );
+          setError("文字を表示できません。文字数・サイズを減らしてください。");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -94,7 +88,7 @@ export function DotTextTool({
     return () => {
       cancelled = true;
     };
-  }, [text, selected, size, scale, revision]);
+  }, [text, selected, size, scale]);
   useEffect(() => {
     const loaded = faces.current;
     return () => {
@@ -117,10 +111,8 @@ export function DotTextTool({
         id="dot-font"
         value={fontIndex}
         onChange={(e) => {
-          const index = Number(e.target.value);
           setPreview(null);
-          setFontIndex(index);
-          setSize(String(fonts[index].size));
+          setFontIndex(Number(e.target.value));
         }}
       >
         {fonts.map((font, i) => (
@@ -129,49 +121,6 @@ export function DotTextTool({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      <label htmlFor="dot-font-file">
-        フォントファイルを読み込む（.otf / .ttf）
-      </label>
-      <Input
-        id="dot-font-file"
-        type="file"
-        accept=".otf,.ttf"
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          e.target.value = '';
-          if (!file) return;
-          if (file.size > 10 * 1024 * 1024) {
-            setError('10MB以下のフォントを選んでください。');
-            return;
-          }
-          const id = ++uploadId.current;
-          setPreview(null);
-          setLoading(true);
-          try {
-            const face = new FontFace(
-              selected.family,
-              await file.arrayBuffer(),
-            );
-            await face.load();
-            if (id !== uploadId.current) return;
-            const old = faces.current.get(selected.family);
-            if (old) document.fonts.delete(old);
-            document.fonts.add(face);
-            faces.current.set(selected.family, face);
-            setRevision((r) => r + 1);
-            setError('');
-          } catch {
-            setError(
-              'フォントを読み込めませんでした。.otf / .ttfファイルを選んでください。',
-            );
-          } finally {
-            if (id === uploadId.current) setLoading(false);
-          }
-        }}
-      />
-      <p>
-        インストール済みのフォントを使います。読み込んだファイルは端末内で処理します。
-      </p>
       <label htmlFor="dot-text">文字（改行できます）</label>
       <Textarea
         id="dot-text"
@@ -280,11 +229,11 @@ export function DotTextTool({
           <p>
             {preview.width}×{preview.height}目
             {!fits &&
-              ' · キャンバスに収まるようサイズや位置を調整してください。'}
+              " · キャンバスに収まるようサイズや位置を調整してください。"}
           </p>
         </>
       )}
-      <output>{loading ? '文字を準備しています…' : error}</output>
+      <output>{loading ? "文字を準備しています…" : error}</output>
       <button
         className="primary full"
         disabled={!fits || loading}
@@ -297,7 +246,6 @@ export function DotTextTool({
       >
         キャンバスに文字を入れる
       </button>
-      <p>文字の部分を上書きします。「一つ戻す」で取り消せます。</p>
     </section>
   );
 }

@@ -73,7 +73,7 @@ export default function Home() {
   const [conversionMode, setConversionMode] =
     useState<ConversionMode>("illustration");
   const [speckles, setSpeckles] = useState(0);
-  const [view, setView] = useState("guide");
+  const [view, setView] = useState("pattern");
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [step, setStep] = useState(0);
@@ -138,6 +138,11 @@ export default function Home() {
   }, [paint]);
   useEffect(() => {
     setSelection(null);
+  }, [pattern.width, pattern.height]);
+  // Keep the size fields prefilled with the current canvas size.
+  useEffect(() => {
+    setCanvasWidth(String(pattern.width));
+    setCanvasHeight(String(pattern.height));
   }, [pattern.width, pattern.height]);
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -657,7 +662,6 @@ export default function Home() {
             }}
           >
             <h3>自由に描く</h3>
-            <p id="canvas-size-help">横・縦それぞれ1〜120目で指定できます。</p>
             <div className="canvas-size-fields">
               <label htmlFor="canvas-width">
                 横の目数
@@ -670,7 +674,6 @@ export default function Home() {
                   required
                   value={canvasWidth}
                   onChange={(e) => setCanvasWidth(e.target.value)}
-                  aria-describedby="canvas-size-help"
                   disabled={busy}
                 />
               </label>
@@ -685,7 +688,6 @@ export default function Home() {
                   required
                   value={canvasHeight}
                   onChange={(e) => setCanvasHeight(e.target.value)}
-                  aria-describedby="canvas-size-help"
                   disabled={busy}
                 />
               </label>
@@ -697,7 +699,6 @@ export default function Home() {
             >
               空のキャンバスを作る
             </button>
-            <p>現在の図案を置き換えます。「一つ戻す」で元に戻せます。</p>
             <button
               className="outline full"
               type="button"
@@ -728,10 +729,6 @@ export default function Home() {
             >
               今の図案をこのサイズに変更
             </button>
-            <p>
-              現在は{pattern.width}×{pattern.height}
-              目。ドットを残したまま右・下を広げ、または切り詰めます。
-            </p>
           </form>
           <DotTextTool
             pattern={pattern}
