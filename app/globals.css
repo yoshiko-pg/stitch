@@ -328,6 +328,7 @@ h1 {
 }
 .upload-zone {
   width: 100%;
+  margin-top: 20px;
   border: 1px dashed #a8bba6;
   background: #f6f8f2;
   border-radius: 8px;
@@ -565,6 +566,9 @@ h1 {
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid #dce3dc;
+}
+.freehand-controls button + button {
+  margin-top: 10px;
 }
 .freehand-controls h3 {
   font-size: 14px;
@@ -1323,9 +1327,7 @@ footer button {
   }
 }
 .merge-colors {
-  border-top: 1px solid #dce3d5;
-  margin: 20px 0;
-  padding-top: 20px;
+  margin: 0;
 }
 .merge-colors h3 {
   font-size: 14px;
@@ -1738,8 +1740,6 @@ footer button {
   display: grid;
   gap: 10px;
   margin: 20px 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
 }
 .dot-text-tool > label,
 .dot-text-tool .canvas-size-fields label {
