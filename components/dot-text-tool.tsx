@@ -104,8 +104,7 @@ export function DotTextTool({
     Number(x) - 1 + preview.width <= pattern.width &&
     Number(y) - 1 + preview.height <= pattern.height;
   return (
-    <section className="dot-text-tool" aria-labelledby="dot-text-title">
-      <h3 id="dot-text-title">ドット文字を入れる</h3>
+    <section className="dot-text-tool" aria-label="ドット文字を入れる">
       <label htmlFor="dot-font">フォント</label>
       <NativeSelect
         id="dot-font"

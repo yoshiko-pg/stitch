@@ -23,8 +23,15 @@ import {
   Undo2,
   Eraser,
   BoxSelect,
+  Plus,
+  Ellipsis,
   Save,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -74,6 +81,7 @@ export default function Home() {
     useState<ConversionMode>("illustration");
   const [speckles, setSpeckles] = useState(0);
   const [view, setView] = useState("pattern");
+  const [tool, setTool] = useState("draw");
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [step, setStep] = useState(0);
@@ -635,112 +643,119 @@ export default function Home() {
     <div className="app-shell" ref={shell}>
       <main className="workspace">
         <aside className="settings" aria-label="図案の設定">
-          <div className="panel-heading">
-            <h2>図案をつくる</h2>
-          </div>
-          <form
-            className="freehand-controls"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!validCanvasSize || busy) return;
-              const w = Number(canvasWidth),
-                h = Number(canvasHeight);
-              update({
-                width: w,
-                height: h,
-                cells: Array.from({ length: w * h }, () => null),
-                name: "手描きの図案",
-              });
-              source.current = null;
-              setSourceName("");
-              setPaint("310");
-              setView("pattern");
-              setZoom(1);
-              setMessage(
-                `${w}×${h}目のキャンバスを作りました。黒で描けます。糸色は「ほかの糸色を追加」から選べます。「一つ戻す」で前の図案に戻せます。`,
-              );
-            }}
-          >
-            <h3>自由に描く</h3>
-            <div className="canvas-size-fields">
-              <label htmlFor="canvas-width">
-                横の目数
-                <Input
-                  id="canvas-width"
-                  type="number"
-                  min={1}
-                  max={120}
-                  step={1}
-                  required
-                  value={canvasWidth}
-                  onChange={(e) => setCanvasWidth(e.target.value)}
-                  disabled={busy}
-                />
-              </label>
-              <label htmlFor="canvas-height">
-                縦の目数
-                <Input
-                  id="canvas-height"
-                  type="number"
-                  min={1}
-                  max={120}
-                  step={1}
-                  required
-                  value={canvasHeight}
-                  onChange={(e) => setCanvasHeight(e.target.value)}
-                  disabled={busy}
-                />
-              </label>
-            </div>
-            <button
-              className="primary full"
-              type="submit"
-              disabled={!validCanvasSize || busy}
-            >
-              空のキャンバスを作る
-            </button>
-            <button
-              className="outline full"
-              type="button"
-              disabled={
-                !validCanvasSize ||
-                busy ||
-                (Number(canvasWidth) === pattern.width &&
-                  Number(canvasHeight) === pattern.height)
-              }
-              onClick={() => {
+          <Tabs value={tool} onValueChange={(v) => setTool(String(v))}>
+            <TabsList>
+              <TabsTrigger value="draw">自由に描く</TabsTrigger>
+              <TabsTrigger value="text">ドット文字</TabsTrigger>
+              <TabsTrigger value="image">画像から</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {tool === "draw" && (
+            <form
+              className="freehand-controls"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!validCanvasSize || busy) return;
                 const w = Number(canvasWidth),
                   h = Number(canvasHeight);
-                const next = resizePattern(pattern, w, h);
-                if (next === pattern) return;
-                const dropped =
-                  pattern.cells.filter(Boolean).length -
-                  next.cells.filter(Boolean).length;
-                update(next);
+                update({
+                  width: w,
+                  height: h,
+                  cells: Array.from({ length: w * h }, () => null),
+                  name: "手描きの図案",
+                });
+                source.current = null;
+                setSourceName("");
+                setPaint("310");
                 setView("pattern");
+                setZoom(1);
                 setMessage(
-                  `キャンバスを${pattern.width}×${pattern.height}目から${w}×${h}目に変更しました。` +
-                    (dropped > 0
-                      ? `はみ出した${dropped}目は削除されました。`
-                      : "") +
-                    "「一つ戻す」で取り消せます。運針は最初からになります。",
+                  `${w}×${h}目のキャンバスを作りました。黒で描けます。糸色は図案上の「＋」から追加できます。「一つ戻す」で前の図案に戻せます。`,
                 );
               }}
             >
-              今の図案をこのサイズに変更
-            </button>
-          </form>
-          <DotTextTool
-            pattern={pattern}
-            onPlace={(next) => {
-              update(next);
-              setView("pattern");
-              setPaint(undefined);
-              setMessage(
-                "ドット文字を配置しました。「一つ戻す」で取り消せます。",
-              );
-            }}
-          />
+              <div className="canvas-size-fields">
+                <label htmlFor="canvas-width">
+                  横の目数
+                  <Input
+                    id="canvas-width"
+                    type="number"
+                    min={1}
+                    max={120}
+                    step={1}
+                    required
+                    value={canvasWidth}
+                    onChange={(e) => setCanvasWidth(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                <label htmlFor="canvas-height">
+                  縦の目数
+                  <Input
+                    id="canvas-height"
+                    type="number"
+                    min={1}
+                    max={120}
+                    step={1}
+                    required
+                    value={canvasHeight}
+                    onChange={(e) => setCanvasHeight(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+              </div>
+              <button
+                className="primary full"
+                type="submit"
+                disabled={!validCanvasSize || busy}
+              >
+                空のキャンバスを作る
+              </button>
+              <button
+                className="outline full"
+                type="button"
+                disabled={
+                  !validCanvasSize ||
+                  busy ||
+                  (Number(canvasWidth) === pattern.width &&
+                    Number(canvasHeight) === pattern.height)
+                }
+                onClick={() => {
+                  const w = Number(canvasWidth),
+                    h = Number(canvasHeight);
+                  const next = resizePattern(pattern, w, h);
+                  if (next === pattern) return;
+                  const dropped =
+                    pattern.cells.filter(Boolean).length -
+                    next.cells.filter(Boolean).length;
+                  update(next);
+                  setView("pattern");
+                  setMessage(
+                    `キャンバスを${pattern.width}×${pattern.height}目から${w}×${h}目に変更しました。` +
+                      (dropped > 0
+                        ? `はみ出した${dropped}目は削除されました。`
+                        : "") +
+                      "「一つ戻す」で取り消せます。運針は最初からになります。",
+                  );
+                }}
+              >
+                今の図案をこのサイズに変更
+              </button>
+            </form>
+          )}
+          {tool === "text" && (
+            <DotTextTool
+              pattern={pattern}
+              onPlace={(next) => {
+                update(next);
+                setView("pattern");
+                setPaint(undefined);
+                setMessage(
+                  "ドット文字を配置しました。「一つ戻す」で取り消せます。",
+                );
+              }}
+            />
+          )}
           <input
             ref={upload}
             type="file"
@@ -751,256 +766,108 @@ export default function Home() {
               e.target.value = "";
             }}
           />
-          <button
-            className="upload-zone"
-            onClick={() => upload.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              load(e.dataTransfer.files[0]);
-            }}
-            disabled={busy}
-          >
-            <Upload size={23} />
-            <strong>{busy ? "変換しています…" : "画像をアップロード"}</strong>
-          </button>
-          <div className="conversion-controls">
-            <label htmlFor="conversion-mode">画像の変換方法</label>
-            <NativeSelect
-              id="conversion-mode"
-              value={conversionMode}
-              onChange={(e) =>
-                setConversionMode(e.target.value as ConversionMode)
-              }
-              disabled={busy}
-            >
-              <NativeSelectOption value="illustration">
-                イラスト向け · 代表色でくっきり
-              </NativeSelectOption>
-              <NativeSelectOption value="pixel">
-                ドット絵向け · 色を混ぜない
-              </NativeSelectOption>
-              <NativeSelectOption value="photo">
-                写真向け · なめらか
-              </NativeSelectOption>
-            </NativeSelect>
-            {conversionMode === "illustration" && (
-              <>
-                <label htmlFor="speckles">近い色の小さな点を整理</label>
+          {tool === "image" && (
+            <>
+              <button
+                className="upload-zone"
+                onClick={() => upload.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  load(e.dataTransfer.files[0]);
+                }}
+                disabled={busy}
+              >
+                <Upload size={23} />
+                <strong>
+                  {busy ? "変換しています…" : "画像をアップロード"}
+                </strong>
+              </button>
+              <div className="conversion-controls">
+                <label htmlFor="conversion-mode">画像の変換方法</label>
                 <NativeSelect
-                  id="speckles"
-                  value={speckles}
-                  onChange={(e) => setSpeckles(Number(e.target.value))}
+                  id="conversion-mode"
+                  value={conversionMode}
+                  onChange={(e) =>
+                    setConversionMode(e.target.value as ConversionMode)
+                  }
                   disabled={busy}
                 >
-                  <NativeSelectOption value={0}>
-                    しない（細部を残す）
+                  <NativeSelectOption value="illustration">
+                    イラスト向け · 代表色でくっきり
                   </NativeSelectOption>
-                  <NativeSelectOption value={1}>1目の点だけ</NativeSelectOption>
-                  <NativeSelectOption value={2}>2目までの点</NativeSelectOption>
+                  <NativeSelectOption value="pixel">
+                    ドット絵向け · 色を混ぜない
+                  </NativeSelectOption>
+                  <NativeSelectOption value="photo">
+                    写真向け · なめらか
+                  </NativeSelectOption>
                 </NativeSelect>
-              </>
-            )}
-          </div>
-          <div className="setting">
-            <label id="size-label">
-              横の目数{" "}
-              <strong>
-                {width}
-                <small> 目</small>
-              </strong>
-            </label>
-            <Slider
-              aria-labelledby="size-label"
-              min={12}
-              max={96}
-              step={4}
-              value={[width]}
-              onValueChange={(v) => setWidth(Array.isArray(v) ? v[0] : v)}
-            />
-          </div>
-          <div className="setting">
-            <label id="color-label">
-              使う色数の上限{" "}
-              <strong>
-                {colors}
-                <small> 色</small>
-              </strong>
-            </label>
-            <Slider
-              aria-labelledby="color-label"
-              min={2}
-              max={24}
-              value={[colors]}
-              onValueChange={(v) => setColors(Array.isArray(v) ? v[0] : v)}
-            />
-          </div>
-          <button
-            className="primary full"
-            disabled={!source.current || busy}
-            onClick={() => convert()}
-          >
-            この設定で図案を更新
-            <ArrowRight size={16} />
-          </button>
-          <section className="pdf-controls">
-            <h3>PDFで保存</h3>
-            <button
-              className="outline full"
-              disabled={pdfBusy}
-              onClick={() => void exportPdf("pattern")}
-            >
-              図案PDFを保存
-            </button>
-            <label htmlFor="pdf-color">運針PDFに含める色</label>
-            <NativeSelect
-              id="pdf-color"
-              value={
-                pdfColor === "all" || palette.some((t) => t.id === pdfColor)
-                  ? pdfColor
-                  : "all"
-              }
-              onChange={(e) => setPdfColor(e.target.value)}
-            >
-              <NativeSelectOption value="all">すべての色</NativeSelectOption>
-              {palette.map((t, i) => (
-                <NativeSelectOption key={t.id} value={t.id}>
-                  {symbols[i]} · DMC {t.id}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <button
-              className="outline full"
-              disabled={pdfBusy || !palette.length}
-              onClick={() => void exportPdf("route")}
-            >
-              {pdfBusy ? "PDFを作成中…" : "運針PDFを保存"}
-            </button>
-            <button className="text-button" onClick={exportSvg}>
-              図案SVGを保存
-            </button>
-          </section>
-          <div className="divider" />
-          <div className="palette-heading">
-            <h3>糸のパレット</h3>
-            <span>DMC · {palette.length}色</span>
-          </div>
-          <div className="palette">
-            {palette.map((t, i) => (
-              <button
-                key={t.id}
-                className={"thread " + (paint === t.id ? "selected" : "")}
-                onClick={() => {
-                  setPaint(paint === t.id ? undefined : t.id);
-                  setView("pattern");
-                }}
-              >
-                <span
-                  className="swatch"
-                  style={{ background: t.hex, color: ink(t.hex) }}
-                >
-                  {symbols[i]}
-                </span>
-                <span>
-                  <strong>{t.id}</strong>
-                  <small>{t.name}</small>
-                </span>
-                <span className="count">
-                  {pattern.cells.filter((c) => c === t.id).length}目
-                </span>
-              </button>
-            ))}
-          </div>
-          <section className="merge-colors" aria-labelledby="merge-title">
-            <h3 id="merge-title">似た色をまとめる</h3>
-            <label htmlFor="merge-from">置き換える色</label>
-            <NativeSelect
-              id="merge-from"
-              value={mergeSource?.id || ""}
-              disabled={palette.length < 2}
-              onChange={(e) => {
-                setMergeFrom(e.target.value);
-                setView("pattern");
-                setPaint(undefined);
-              }}
-            >
-              <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
-              {palette.map((t, i) => (
-                <NativeSelectOption key={t.id} value={t.id}>
-                  {symbols[i]} · DMC {t.id} ·{" "}
-                  {pattern.cells.filter((c) => c === t.id).length}目
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <label htmlFor="merge-to">残す色</label>
-            <NativeSelect
-              id="merge-to"
-              value={mergeTarget?.id || ""}
-              disabled={palette.length < 2}
-              onChange={(e) => setMergeTo(e.target.value)}
-            >
-              <NativeSelectOption value="">色を選ぶ</NativeSelectOption>
-              {palette.map((t, i) => (
-                <NativeSelectOption
-                  key={t.id}
-                  value={t.id}
-                  disabled={t.id === mergeSource?.id}
-                >
-                  {symbols[i]} · DMC {t.id} · {t.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            {canMerge && (
-              <div className="merge-preview">
-                <span
-                  style={{
-                    background: mergeSource!.hex,
-                    color: ink(mergeSource!.hex),
-                  }}
-                >
-                  {symbols[palette.indexOf(mergeSource!)]}
-                </span>
-                <ArrowRight size={16} />
-                <span
-                  style={{
-                    background: mergeTarget!.hex,
-                    color: ink(mergeTarget!.hex),
-                  }}
-                >
-                  {symbols[palette.indexOf(mergeTarget!)]}
-                </span>
-                <strong>{mergeCount}目</strong>
+                {conversionMode === "illustration" && (
+                  <>
+                    <label htmlFor="speckles">近い色の小さな点を整理</label>
+                    <NativeSelect
+                      id="speckles"
+                      value={speckles}
+                      onChange={(e) => setSpeckles(Number(e.target.value))}
+                      disabled={busy}
+                    >
+                      <NativeSelectOption value={0}>
+                        しない（細部を残す）
+                      </NativeSelectOption>
+                      <NativeSelectOption value={1}>
+                        1目の点だけ
+                      </NativeSelectOption>
+                      <NativeSelectOption value={2}>
+                        2目までの点
+                      </NativeSelectOption>
+                    </NativeSelect>
+                  </>
+                )}
               </div>
-            )}
-            <button
-              className="primary full"
-              disabled={!canMerge}
-              onClick={mergeColors}
-            >
-              {canMerge ? `${mergeCount}目をまとめる` : "色を選んでまとめる"}
-            </button>
-          </section>
-          <details>
-            <summary>ほかの糸色を追加</summary>
-            <div className="extra-palette">
-              {threads
-                .filter((t) => !palette.includes(t))
-                .map((t) => (
-                  <button
-                    key={t.id}
-                    title={`DMC ${t.id} ${t.name}`}
-                    aria-label={`DMC ${t.id} ${t.name}で描く`}
-                    style={{ background: t.hex, color: ink(t.hex) }}
-                    onClick={() => {
-                      setPaint(t.id);
-                      setView("pattern");
-                    }}
-                  >
-                    {t.id}
-                  </button>
-                ))}
-            </div>
-          </details>
+              <div className="setting">
+                <label id="size-label">
+                  横の目数{" "}
+                  <strong>
+                    {width}
+                    <small> 目</small>
+                  </strong>
+                </label>
+                <Slider
+                  aria-labelledby="size-label"
+                  min={12}
+                  max={96}
+                  step={4}
+                  value={[width]}
+                  onValueChange={(v) => setWidth(Array.isArray(v) ? v[0] : v)}
+                />
+              </div>
+              <div className="setting">
+                <label id="color-label">
+                  使う色数の上限{" "}
+                  <strong>
+                    {colors}
+                    <small> 色</small>
+                  </strong>
+                </label>
+                <Slider
+                  aria-labelledby="color-label"
+                  min={2}
+                  max={24}
+                  value={[colors]}
+                  onValueChange={(v) => setColors(Array.isArray(v) ? v[0] : v)}
+                />
+              </div>
+              <button
+                className="primary full"
+                disabled={!source.current || busy}
+                onClick={() => convert()}
+              >
+                この設定で図案を更新
+                <ArrowRight size={16} />
+              </button>
+            </>
+          )}
         </aside>
         <section className="canvas-panel">
           <div className="canvas-toolbar">
@@ -1051,6 +918,31 @@ export default function Home() {
                       </label>
                     ))}
                   </RadioGroup>
+                  <Popover>
+                    <PopoverTrigger title="ほかの糸色を追加">
+                      <Plus size={17} />
+                    </PopoverTrigger>
+                    <PopoverContent align="start">
+                      <div className="extra-palette">
+                        {threads
+                          .filter((t) => !palette.includes(t))
+                          .map((t) => (
+                            <button
+                              key={t.id}
+                              title={`DMC ${t.id} ${t.name}`}
+                              aria-label={`DMC ${t.id} ${t.name}で描く`}
+                              style={{ background: t.hex, color: ink(t.hex) }}
+                              onClick={() => {
+                                setPaint(t.id);
+                                setView("pattern");
+                              }}
+                            >
+                              {t.id}
+                            </button>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <button
                     type="button"
                     className={paint === null ? "active" : ""}
@@ -1109,6 +1001,91 @@ export default function Home() {
                   >
                     余白を詰める
                   </button>
+                  <Popover>
+                    <PopoverTrigger aria-label="その他の操作">
+                      <Ellipsis size={17} />
+                    </PopoverTrigger>
+                    <PopoverContent align="end">
+                      <section
+                        className="merge-colors"
+                        aria-labelledby="merge-title"
+                      >
+                        <h3 id="merge-title">似た色をまとめる</h3>
+                        <label htmlFor="merge-from">置き換える色</label>
+                        <NativeSelect
+                          id="merge-from"
+                          value={mergeSource?.id || ""}
+                          disabled={palette.length < 2}
+                          onChange={(e) => {
+                            setMergeFrom(e.target.value);
+                            setView("pattern");
+                            setPaint(undefined);
+                          }}
+                        >
+                          <NativeSelectOption value="">
+                            色を選ぶ
+                          </NativeSelectOption>
+                          {palette.map((t, i) => (
+                            <NativeSelectOption key={t.id} value={t.id}>
+                              {symbols[i]} · DMC {t.id} ·{" "}
+                              {pattern.cells.filter((c) => c === t.id).length}目
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                        <label htmlFor="merge-to">残す色</label>
+                        <NativeSelect
+                          id="merge-to"
+                          value={mergeTarget?.id || ""}
+                          disabled={palette.length < 2}
+                          onChange={(e) => setMergeTo(e.target.value)}
+                        >
+                          <NativeSelectOption value="">
+                            色を選ぶ
+                          </NativeSelectOption>
+                          {palette.map((t, i) => (
+                            <NativeSelectOption
+                              key={t.id}
+                              value={t.id}
+                              disabled={t.id === mergeSource?.id}
+                            >
+                              {symbols[i]} · DMC {t.id} · {t.name}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                        {canMerge && (
+                          <div className="merge-preview">
+                            <span
+                              style={{
+                                background: mergeSource!.hex,
+                                color: ink(mergeSource!.hex),
+                              }}
+                            >
+                              {symbols[palette.indexOf(mergeSource!)]}
+                            </span>
+                            <ArrowRight size={16} />
+                            <span
+                              style={{
+                                background: mergeTarget!.hex,
+                                color: ink(mergeTarget!.hex),
+                              }}
+                            >
+                              {symbols[palette.indexOf(mergeTarget!)]}
+                            </span>
+                            <strong>{mergeCount}目</strong>
+                          </div>
+                        )}
+                        <button
+                          className="primary full"
+                          disabled={!canMerge}
+                          onClick={mergeColors}
+                        >
+                          {canMerge
+                            ? `${mergeCount}目をまとめる`
+                            : "色を選んでまとめる"}
+                        </button>
+                      </section>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="zoom-tools">
                   <button
@@ -1395,6 +1372,33 @@ export default function Home() {
         >
           サンプルを開く
         </button>
+        <button disabled={pdfBusy} onClick={() => void exportPdf("pattern")}>
+          図案PDF
+        </button>
+        <NativeSelect
+          id="pdf-color"
+          aria-label="運針PDFに含める色"
+          value={
+            pdfColor === "all" || palette.some((t) => t.id === pdfColor)
+              ? pdfColor
+              : "all"
+          }
+          onChange={(e) => setPdfColor(e.target.value)}
+        >
+          <NativeSelectOption value="all">すべての色</NativeSelectOption>
+          {palette.map((t, i) => (
+            <NativeSelectOption key={t.id} value={t.id}>
+              {symbols[i]} · DMC {t.id}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+        <button
+          disabled={pdfBusy || !palette.length}
+          onClick={() => void exportPdf("route")}
+        >
+          {pdfBusy ? "PDF作成中…" : "運針PDF"}
+        </button>
+        <button onClick={exportSvg}>図案SVG</button>
         <button
           onClick={() =>
             download(
