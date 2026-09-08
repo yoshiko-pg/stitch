@@ -34,13 +34,32 @@ export const threads: Thread[] = [
   ["552", "パープル", "9460a0"],
   ["153", "ライトバイオレット", "dfc5e4"],
 ].map(([id, name, hex]) => ({ id: id.trim(), name, hex: "#" + hex }));
+/** How a coloured cell is painted: a full square (null), a half triangle, or an outline. */
+export type CellStyle = "tl" | "tr" | "bl" | "br" | "frame";
+export const cellStyles: CellStyle[] = ["tl", "tr", "bl", "br", "frame"];
 export type Pattern = {
   width: number;
   height: number;
   cells: (string | null)[];
   name: string;
+  styles?: (CellStyle | null)[];
 };
 export type Point = [number, number];
+export function cellStyle(p: Pattern, cell: number): CellStyle | null {
+  return p.styles?.[cell] ?? null;
+}
+export function setCellStyle(
+  p: Pattern,
+  cell: number,
+  style: CellStyle | null,
+): Pattern {
+  if (cellStyle(p, cell) === style) return p;
+  const styles = p.styles
+    ? [...p.styles]
+    : Array.from({ length: p.cells.length }, () => null);
+  styles[cell] = style;
+  return { ...p, styles };
+}
 /** Remove only empty outer rows/columns; keep interior gaps and every thread. */
 export function trimPattern(p: Pattern): Pattern {
   let left = p.width,
@@ -65,9 +84,20 @@ export function trimPattern(p: Pattern): Pattern {
   )
     return p;
   const cells: Pattern["cells"] = [];
-  for (let y = top; y <= bottom; y++)
+  const styles: Pattern["styles"] = p.styles && [];
+  for (let y = top; y <= bottom; y++) {
     cells.push(...p.cells.slice(y * p.width + left, y * p.width + right + 1));
-  return { ...p, width: right - left + 1, height: bottom - top + 1, cells };
+    styles?.push(
+      ...p.styles!.slice(y * p.width + left, y * p.width + right + 1),
+    );
+  }
+  return {
+    ...p,
+    width: right - left + 1,
+    height: bottom - top + 1,
+    cells,
+    ...(styles && { styles }),
+  };
 }
 export type Region = { x: number; y: number; width: number; height: number };
 /** Shift every stitch inside the region; vacated cells empty, covered cells are overwritten. */
@@ -79,23 +109,27 @@ export function moveRegion(
 ): Pattern {
   if (dx === 0 && dy === 0) return p;
   const cells = [...p.cells];
-  const moved: [number, number, string][] = [];
+  const styles = p.styles && [...p.styles];
+  const moved: [number, number, string, CellStyle | null][] = [];
   for (let y = region.y; y < region.y + region.height; y++)
     for (let x = region.x; x < region.x + region.width; x++) {
-      const color = p.cells[y * p.width + x];
+      const cell = y * p.width + x;
+      const color = p.cells[cell];
       if (color === null) continue;
-      cells[y * p.width + x] = null;
-      moved.push([x + dx, y + dy, color]);
+      cells[cell] = null;
+      if (styles) styles[cell] = null;
+      moved.push([x + dx, y + dy, color, cellStyle(p, cell)]);
     }
   let changed = false;
-  for (const [x, y, color] of moved) {
+  for (const [x, y, color, style] of moved) {
     if (x < 0 || y < 0 || x >= p.width || y >= p.height) continue;
     const cell = y * p.width + x;
     if (p.cells[cell] !== color) changed = true;
     cells[cell] = color;
+    if (styles) styles[cell] = style;
   }
   if (!changed && cells.every((c, i) => c === p.cells[i])) return p;
-  return { ...p, cells };
+  return { ...p, cells, ...(styles && { styles }) };
 }
 /** Change the canvas size, keeping stitches anchored top-left; overflow is cropped. */
 export function resizePattern(
@@ -105,10 +139,14 @@ export function resizePattern(
 ): Pattern {
   if (width === p.width && height === p.height) return p;
   const cells: Pattern["cells"] = [];
+  const styles: Pattern["styles"] = p.styles && [];
   for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++)
-      cells.push(x < p.width && y < p.height ? p.cells[y * p.width + x] : null);
-  return { ...p, width, height, cells };
+    for (let x = 0; x < width; x++) {
+      const inside = x < p.width && y < p.height;
+      cells.push(inside ? p.cells[y * p.width + x] : null);
+      styles?.push(inside ? p.styles![y * p.width + x] : null);
+    }
+  return { ...p, width, height, cells, ...(styles && { styles }) };
 }
 export type Stitch = {
   color: string;

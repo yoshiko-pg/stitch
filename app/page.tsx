@@ -3,6 +3,8 @@
 /* oxlint-disable react/react-compiler */
 // Inline SVGs require an accessible image role; replacing them with img would lose their dynamic geometry.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
+// The pattern board is an interactive drawing surface despite its image role.
+/* oxlint-disable jsx-a11y/no-noninteractive-element-interactions */
 import { DotTextTool } from "@/components/dot-text-tool";
 import { RouteOverview } from "./route-overview";
 import {
@@ -10,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -48,6 +51,10 @@ import {
   trimPattern,
   moveRegion,
   resizePattern,
+  cellStyle,
+  setCellStyle,
+  cellStyles,
+  type CellStyle,
   type Pattern,
   type Region,
 } from "@/lib/stitch";
@@ -106,6 +113,11 @@ export default function Home() {
     color: string | null;
     last: [number, number] | null;
     changed: boolean;
+  } | null>(null);
+  const [cellMenu, setCellMenu] = useState<{
+    cell: number;
+    x: number;
+    y: number;
   } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
@@ -222,6 +234,12 @@ export default function Home() {
       Array.isArray(p.cells) &&
       p.cells.length === p.width * p.height &&
       p.cells.every((c) => c === null || threads.some((t) => t.id === c)) &&
+      (p.styles === undefined ||
+        (Array.isArray(p.styles) &&
+          p.styles.length === p.cells.length &&
+          p.styles.every(
+            (s) => s === null || cellStyles.includes(s as CellStyle),
+          ))) &&
       typeof p.name === "string"
     );
   }
@@ -316,9 +334,11 @@ export default function Home() {
     };
     img.src = url;
   }
-  function pointerCell(
-    e: ReactPointerEvent<SVGSVGElement>,
-  ): [number, number] | null {
+  function pointerCell(e: {
+    clientX: number;
+    clientY: number;
+    currentTarget: SVGSVGElement;
+  }): [number, number] | null {
     const matrix = e.currentTarget.getScreenCTM();
     if (!matrix) return null;
     const point = new DOMPoint(e.clientX, e.clientY).matrixTransform(
@@ -515,6 +535,30 @@ export default function Home() {
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
+  function openCellMenu(e: ReactMouseEvent<SVGSVGElement>) {
+    if (view !== "pattern") return;
+    const at = pointerCell(e);
+    if (!at) return;
+    e.preventDefault();
+    const cell = at[1] * pattern.width + at[0];
+    if (!pattern.cells[cell]) {
+      setCellMenu(null);
+      return;
+    }
+    setCellMenu({ cell, x: e.clientX, y: e.clientY });
+  }
+  const styleOptions: {
+    style: CellStyle | null;
+    mark: string;
+    label: string;
+  }[] = [
+    { style: null, mark: "■", label: "全面" },
+    { style: "tl", mark: "◤", label: "左上の三角" },
+    { style: "tr", mark: "◥", label: "右上の三角" },
+    { style: "bl", mark: "◣", label: "左下の三角" },
+    { style: "br", mark: "◢", label: "右下の三角" },
+    { style: "frame", mark: "□", label: "罫線（枠のみ）" },
+  ];
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
     const a = document.createElement("a");
@@ -552,6 +596,18 @@ export default function Home() {
         const t = threads.find((t) => t.id === c)!;
         const x = (i % pattern.width) * cell + pad,
           y = Math.floor(i / pattern.width) * cell + pad;
+        const s = cellStyle(pattern, i);
+        if (s === "frame")
+          return `<rect x="${x + 2}" y="${y + 2}" width="18" height="18" fill="none" stroke="${t.hex}" stroke-width="3"/>`;
+        if (s) {
+          const triangle = {
+            tl: `M${x} ${y}h${cell}L${x} ${y + cell}Z`,
+            tr: `M${x} ${y}h${cell}v${cell}Z`,
+            bl: `M${x} ${y}v${cell}h${cell}Z`,
+            br: `M${x + cell} ${y}v${cell}h${-cell}Z`,
+          };
+          return `<path d="${triangle[s]}" fill="${t.hex}"/>`;
+        }
         return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || "＋"}</text>`;
       })
       .join("");
@@ -947,6 +1003,7 @@ export default function Home() {
               </PopoverTrigger>
               <PopoverContent align="end">
                 <div className="save-menu">
+                  <h4>PDF</h4>
                   <button
                     disabled={pdfBusy}
                     onClick={() => void exportPdf("pattern")}
@@ -979,8 +1036,10 @@ export default function Home() {
                   >
                     {pdfBusy ? "PDFを作成中…" : "運針PDFを保存"}
                   </button>
+                  <h4>画像</h4>
                   <button onClick={exportPng}>図案PNGを保存</button>
                   <button onClick={exportSvg}>図案SVGを保存</button>
+                  <h4>作業データ</h4>
                   <button
                     onClick={() =>
                       download(
@@ -1277,6 +1336,7 @@ export default function Home() {
                     onPointerUp={selecting ? endSelect : finishStroke}
                     onPointerCancel={selecting ? endSelect : finishStroke}
                     onLostPointerCapture={selecting ? endSelect : finishStroke}
+                    onContextMenu={openCellMenu}
                     style={{
                       touchAction:
                         view === "pattern" && (paint !== undefined || selecting)
@@ -1304,18 +1364,42 @@ export default function Home() {
                       const t = threads.find((t) => t.id === c);
                       const x = i % pattern.width,
                         y = Math.floor(i / pattern.width);
+                      const s = cellStyle(pattern, i);
                       const faded =
                         view === "step" && current && c !== current.color;
+                      const triangle = {
+                        tl: `M${x} ${y}h1L${x} ${y + 1}Z`,
+                        tr: `M${x} ${y}h1v1Z`,
+                        bl: `M${x} ${y}v1h1Z`,
+                        br: `M${x + 1} ${y}v1h-1Z`,
+                      };
                       return (
                         <g key={i} opacity={faded ? 0.2 : 1}>
-                          <rect
-                            x={x}
-                            y={y}
-                            width={1}
-                            height={1}
-                            fill={t?.hex || "#fffefa"}
-                          />
+                          {t && s === null && (
+                            <rect
+                              x={x}
+                              y={y}
+                              width={1}
+                              height={1}
+                              fill={t.hex}
+                            />
+                          )}
+                          {t && s && s !== "frame" && (
+                            <path d={triangle[s]} fill={t.hex} />
+                          )}
+                          {t && s === "frame" && (
+                            <rect
+                              x={x + 0.09}
+                              y={y + 0.09}
+                              width={0.82}
+                              height={0.82}
+                              fill="none"
+                              stroke={t.hex}
+                              strokeWidth=".14"
+                            />
+                          )}
                           {t &&
+                            s === null &&
                             (showSymbols ? (
                               <text
                                 x={x + 0.5}
@@ -1499,6 +1583,60 @@ export default function Home() {
         </section>
       </main>
       <PatternPreview pattern={pattern} cells={draftCells || pattern.cells} />
+      {cellMenu && (
+        <div
+          className="cell-menu-backdrop"
+          role="presentation"
+          onClick={() => setCellMenu(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setCellMenu(null);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setCellMenu(null);
+          }}
+        >
+          <div
+            className="cell-menu"
+            role="menu"
+            aria-label="マスの塗り方"
+            tabIndex={-1}
+            style={{
+              left: Math.min(cellMenu.x, window.innerWidth - 180),
+              top: Math.min(cellMenu.y, window.innerHeight - 240),
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setCellMenu(null);
+            }}
+          >
+            <span>塗り方</span>
+            {styleOptions.map((option) => (
+              <button
+                key={option.mark}
+                role="menuitem"
+                className={
+                  cellStyle(pattern, cellMenu.cell) === option.style
+                    ? "active"
+                    : ""
+                }
+                onClick={() => {
+                  const next = setCellStyle(
+                    pattern,
+                    cellMenu.cell,
+                    option.style,
+                  );
+                  if (next !== pattern) update(next);
+                  setCellMenu(null);
+                }}
+              >
+                <span aria-hidden="true">{option.mark}</span>
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1529,6 +1667,24 @@ function PatternPreview({
       const x = (i % pattern.width) * cellSize;
       const y = Math.floor(i / pattern.width) * cellSize;
       ctx.strokeStyle = colors.get(color) || "#ffffff";
+      const s = cellStyle(pattern, i);
+      if (s === "frame") {
+        ctx.strokeRect(x + 2, y + 2, 8, 8);
+        return;
+      }
+      if (s) {
+        // A half stitch: a single diagonal along the triangle's hypotenuse.
+        ctx.beginPath();
+        if (s === "tl" || s === "br") {
+          ctx.moveTo(x + 10, y + 2);
+          ctx.lineTo(x + 2, y + 10);
+        } else {
+          ctx.moveTo(x + 2, y + 2);
+          ctx.lineTo(x + 10, y + 10);
+        }
+        ctx.stroke();
+        return;
+      }
       // Lower backslash, then upper slash, matching the actual stitch order.
       ctx.beginPath();
       ctx.moveTo(x + 2, y + 2);
@@ -1539,7 +1695,7 @@ function PatternPreview({
       ctx.lineTo(x + 2, y + 10);
       ctx.stroke();
     });
-  }, [cells, pattern.width, pattern.height]);
+  }, [cells, pattern]);
   const cssWidth = (pattern.width / count) * 96,
     cssHeight = (pattern.height / count) * 96;
   const scale = Math.min(1, 180 / cssWidth, 150 / cssHeight);

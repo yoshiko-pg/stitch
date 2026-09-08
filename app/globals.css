@@ -832,6 +832,60 @@ summary {
   display: grid;
   gap: 8px;
 }
+.save-menu h4 {
+  margin: 6px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #e3e8de;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64785e;
+}
+.save-menu h4:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.cell-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.cell-menu {
+  position: fixed;
+  display: grid;
+  gap: 2px;
+  min-width: 160px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #d4ddce;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px #213c3222;
+}
+.cell-menu > span {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #64785e;
+}
+.cell-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  font-size: 12.5px;
+  color: #2f4a3c;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  text-align: left;
+}
+.cell-menu button:hover {
+  background: #eef2e9;
+}
+.cell-menu button.active {
+  background: #e5ecdd;
+  color: #345238;
+  font-weight: 600;
+}
 .save-menu button,
 .save-menu .import-label {
   display: flex;

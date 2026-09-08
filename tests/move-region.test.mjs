@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { moveRegion } from '../lib/stitch.ts';
+import { moveRegion, setCellStyle } from '../lib/stitch.ts';
+
+test('cell styles travel with their stitches', () => {
+  const base = {
+    width: 3,
+    height: 1,
+    cells: ['321', null, null],
+    name: 'styled',
+  };
+  const styled = setCellStyle(base, 0, 'tl');
+  const moved = moveRegion(styled, { x: 0, y: 0, width: 1, height: 1 }, 2, 0);
+  assert.deepEqual(moved.cells, [null, null, '321']);
+  assert.deepEqual(moved.styles, [null, null, 'tl']);
+});
 
 test('moves stitches inside the region and empties the vacated cells', () => {
   const p = Object.freeze({
