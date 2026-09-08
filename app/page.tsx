@@ -12,7 +12,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -52,10 +51,8 @@ import {
   moveRegion,
   resizePattern,
   cellStyle,
-  setCellStyle,
   cellStyles,
   cellLines,
-  toggleCellLine,
   type CellStyle,
   type LineSegment,
   type Pattern,
@@ -108,20 +105,23 @@ export default function Home() {
   const upload = useRef<HTMLInputElement>(null);
   const board = useRef<SVGSVGElement>(null);
 
-  const [draftCells, setDraftCells] = useState<(string | null)[] | null>(null);
+  const [draft, setDraft] = useState<Pattern | null>(null);
   const stroke = useRef<{
     pointerId: number;
     original: Pattern;
     cells: (string | null)[];
+    styles: (CellStyle | null)[];
+    lines: (string | null)[];
     color: string | null;
+    mode: "fill" | "lines";
+    brush: CellStyle | null;
+    segments: string;
     last: [number, number] | null;
     changed: boolean;
   } | null>(null);
-  const [cellMenu, setCellMenu] = useState<{
-    cell: number;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [brush, setBrush] = useState<CellStyle | null>(null);
+  const [lineBrush, setLineBrush] = useState("");
+  const [brushMode, setBrushMode] = useState<"fill" | "lines">("fill");
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
   const selectDrag = useRef<
@@ -153,6 +153,7 @@ export default function Home() {
   }, [pattern.width, pattern.height]);
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
+  const shown = draft || pattern;
   const sequence = useMemo(() => route(pattern), [pattern]);
   const trimmedPattern = useMemo(() => trimPattern(pattern), [pattern]);
   const current = sequence[Math.min(step, sequence.length - 1)];
@@ -383,10 +384,28 @@ export default function Home() {
     // Fill skipped cells between pointer events, including fast diagonal strokes.
     while (true) {
       const i = y * active.original.width + x;
-      if (active.cells[i] !== active.color) {
-        active.cells[i] = active.color;
-        active.changed = true;
-        changed = true;
+      if (active.mode === "lines") {
+        // The line brush stamps exactly the selected segments; the eraser removes them.
+        const value =
+          active.color === null ? null : `${active.color}:${active.segments}`;
+        if (active.lines[i] !== value) {
+          active.lines[i] = value;
+          active.changed = true;
+          changed = true;
+        }
+      } else {
+        const style = active.color === null ? null : active.brush;
+        if (
+          active.cells[i] !== active.color ||
+          active.styles[i] !== style ||
+          (active.color === null && active.lines[i] !== null)
+        ) {
+          active.cells[i] = active.color;
+          active.styles[i] = style;
+          if (active.color === null) active.lines[i] = null;
+          active.changed = true;
+          changed = true;
+        }
       }
       if (x === endX && y === endY) break;
       const twice = 2 * error;
@@ -400,12 +419,20 @@ export default function Home() {
       }
     }
     active.last = cell;
-    if (changed) setDraftCells([...active.cells]);
+    if (changed)
+      setDraft({
+        ...active.original,
+        cells: [...active.cells],
+        styles: [...active.styles],
+        lines: [...active.lines],
+      });
   }
+  const lineMode = brushMode === "lines" && lineBrush.length > 0;
+  const canPaint = paint !== undefined || lineMode;
   function beginStroke(e: ReactPointerEvent<SVGSVGElement>) {
     if (
       view !== "pattern" ||
-      paint === undefined ||
+      !canPaint ||
       e.button !== 0 ||
       !e.isPrimary ||
       stroke.current ||
@@ -413,11 +440,18 @@ export default function Home() {
     )
       return;
     e.preventDefault();
+    const blank = () =>
+      Array.from({ length: pattern.cells.length }, () => null);
     stroke.current = {
       pointerId: e.pointerId,
       original: pattern,
       cells: [...pattern.cells],
-      color: paint,
+      styles: pattern.styles ? [...pattern.styles] : blank(),
+      lines: pattern.lines ? [...pattern.lines] : blank(),
+      color: paint === undefined ? "310" : paint,
+      mode: lineMode ? "lines" : "fill",
+      brush,
+      segments: lineBrush,
       last: null,
       changed: false,
     };
@@ -431,10 +465,15 @@ export default function Home() {
     stroke.current = null;
     if (active.changed) {
       setHistory((h) => [...h.slice(-19), active.original]);
-      setPattern({ ...active.original, cells: active.cells });
+      setPattern({
+        ...active.original,
+        cells: active.cells,
+        styles: active.styles,
+        lines: active.lines,
+      });
       setStep(0);
     }
-    setDraftCells(null);
+    setDraft(null);
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
@@ -515,7 +554,7 @@ export default function Home() {
     );
     if (dx === active.offset[0] && dy === active.offset[1]) return;
     active.offset = [dx, dy];
-    setDraftCells(moveRegion(active.original, active.region, dx, dy).cells);
+    setDraft(moveRegion(active.original, active.region, dx, dy));
     setSelection({
       ...active.region,
       x: active.region.x + dx,
@@ -527,7 +566,7 @@ export default function Home() {
     if (!active || active.pointerId !== e.pointerId) return;
     if (e.type === "pointerup") moveSelect(e);
     selectDrag.current = null;
-    setDraftCells(null);
+    setDraft(null);
     if (active.kind === "move") {
       // An interrupted drag reverts; only a completed pointerup commits the move.
       const next =
@@ -548,15 +587,7 @@ export default function Home() {
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
-  function openCellMenu(e: ReactMouseEvent<SVGSVGElement>) {
-    if (view !== "pattern") return;
-    const at = pointerCell(e);
-    if (!at) return;
-    e.preventDefault();
-    const cell = at[1] * pattern.width + at[0];
-    setCellMenu({ cell, x: e.clientX, y: e.clientY });
-  }
-  const styleOptions: {
+  const brushOptions: {
     style: CellStyle | null;
     mark: string;
     label: string;
@@ -567,21 +598,28 @@ export default function Home() {
     { style: "bl", mark: "◣", label: "左下の三角" },
     { style: "br", mark: "◢", label: "右下の三角" },
   ];
-  const lineOptions: { segment: LineSegment; mark: string; label: string }[] = [
-    { segment: "t", mark: "▔", label: "上" },
-    { segment: "b", mark: "▁", label: "下" },
-    { segment: "l", mark: "▏", label: "左" },
-    { segment: "r", mark: "▕", label: "右" },
-    { segment: "d", mark: "＼", label: "斜め" },
-    { segment: "u", mark: "／", label: "斜め" },
+  const glyphSegments: {
+    segment: LineSegment;
+    label: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  }[] = [
+    { segment: "t", label: "上の罫線", x1: 3, y1: 3, x2: 19, y2: 3 },
+    { segment: "b", label: "下の罫線", x1: 3, y1: 19, x2: 19, y2: 19 },
+    { segment: "l", label: "左の罫線", x1: 3, y1: 3, x2: 3, y2: 19 },
+    { segment: "r", label: "右の罫線", x1: 19, y1: 3, x2: 19, y2: 19 },
+    { segment: "d", label: "斜めの罫線（＼）", x1: 3, y1: 3, x2: 19, y2: 19 },
+    { segment: "u", label: "斜めの罫線（／）", x1: 19, y1: 3, x2: 3, y2: 19 },
   ];
-  // Lines inherit the cell's thread; otherwise the active paint colour or black.
-  function lineColor(cell: number) {
-    return (
-      cellLines(pattern, cell)?.color ||
-      pattern.cells[cell] ||
-      (typeof paint === "string" ? paint : "310")
-    );
+  function toggleGlyphSegment(segment: LineSegment) {
+    const next = lineBrush.includes(segment)
+      ? lineBrush.replace(segment, "")
+      : lineBrush + segment;
+    setLineBrush(next);
+    setBrushMode(next ? "lines" : "fill");
+    setView("pattern");
   }
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
@@ -651,7 +689,12 @@ export default function Home() {
           d: `M${x} ${y}L${x + cell} ${y + cell}`,
           u: `M${x + cell} ${y}L${x} ${y + cell}`,
         };
-        return `<path d="${at.segments.split("").map((s) => paths[s]).join("")}" fill="none" stroke="${t.hex}" stroke-width="3" stroke-linecap="round"/>`;
+        return `<path d="${at.segments
+          .split("")
+          .map((s) => paths[s])
+          .join(
+            "",
+          )}" fill="none" stroke="${t.hex}" stroke-width="3" stroke-linecap="round"/>`;
       })
       .join("");
     const grid = [
@@ -1218,6 +1261,87 @@ export default function Home() {
                   >
                     <Eraser size={17} />
                   </button>
+                  <div
+                    className="brush-shapes"
+                    role="group"
+                    aria-label="塗る形"
+                  >
+                    {brushOptions.map((option) => (
+                      <button
+                        key={option.mark}
+                        type="button"
+                        className={
+                          brushMode === "fill" && brush === option.style
+                            ? "active"
+                            : ""
+                        }
+                        aria-pressed={
+                          brushMode === "fill" && brush === option.style
+                        }
+                        aria-label={`${option.label}で塗る`}
+                        title={`${option.label}で塗る`}
+                        onClick={() => {
+                          setBrushMode("fill");
+                          setBrush(option.style);
+                          setView("pattern");
+                        }}
+                      >
+                        {option.mark}
+                      </button>
+                    ))}
+                    <svg
+                      className={
+                        "line-brush " + (brushMode === "lines" ? "active" : "")
+                      }
+                      viewBox="0 0 22 22"
+                      role="group"
+                      aria-label="罫線で塗る · 入れる線をクリックで選択"
+                    >
+                      <title>罫線で塗る · 入れる線をクリックで選択</title>
+                      {glyphSegments.map((seg) => (
+                        <g key={seg.segment}>
+                          <line
+                            x1={seg.x1}
+                            y1={seg.y1}
+                            x2={seg.x2}
+                            y2={seg.y2}
+                            stroke={
+                              lineBrush.includes(seg.segment)
+                                ? "#2c5a41"
+                                : "#c9d3c5"
+                            }
+                            strokeWidth={
+                              lineBrush.includes(seg.segment) ? 2.6 : 1.8
+                            }
+                            strokeLinecap="round"
+                            pointerEvents="none"
+                          />
+                          <line
+                            x1={seg.x1}
+                            y1={seg.y1}
+                            x2={seg.x2}
+                            y2={seg.y2}
+                            stroke="transparent"
+                            strokeWidth={5}
+                            strokeLinecap="round"
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={lineBrush.includes(seg.segment)}
+                            aria-label={seg.label}
+                            onClick={() => toggleGlyphSegment(seg.segment)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleGlyphSegment(seg.segment);
+                              }
+                            }}
+                          >
+                            <title>{seg.label}</title>
+                          </line>
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
                   <button
                     type="button"
                     className={selecting ? "active" : ""}
@@ -1379,16 +1503,15 @@ export default function Home() {
                     onPointerUp={selecting ? endSelect : finishStroke}
                     onPointerCancel={selecting ? endSelect : finishStroke}
                     onLostPointerCapture={selecting ? endSelect : finishStroke}
-                    onContextMenu={openCellMenu}
                     style={{
                       touchAction:
-                        view === "pattern" && (paint !== undefined || selecting)
+                        view === "pattern" && (canPaint || selecting)
                           ? "none"
                           : "auto",
                     }}
                     className={
                       "pattern-grid " +
-                      (view === "pattern" && (paint !== undefined || selecting)
+                      (view === "pattern" && (canPaint || selecting)
                         ? "painting"
                         : "")
                     }
@@ -1403,11 +1526,11 @@ export default function Home() {
                       height={pattern.height}
                       fill="#fffefa"
                     />
-                    {(draftCells || pattern.cells).map((c, i) => {
+                    {shown.cells.map((c, i) => {
                       const t = threads.find((t) => t.id === c);
                       const x = i % pattern.width,
                         y = Math.floor(i / pattern.width);
-                      const s = cellStyle(pattern, i);
+                      const s = cellStyle(shown, i);
                       const faded =
                         view === "step" && current && c !== current.color;
                       const triangle = {
@@ -1484,9 +1607,9 @@ export default function Home() {
                         pointerEvents="none"
                       />
                     ))}
-                    {(pattern.lines || []).map((raw, i) => {
+                    {(shown.lines || []).map((raw, i) => {
                       if (!raw) return null;
-                      const at = cellLines(pattern, i)!;
+                      const at = cellLines(shown, i)!;
                       const t = threads.find((th) => th.id === at.color);
                       if (!t) return null;
                       const x = i % pattern.width,
@@ -1502,7 +1625,10 @@ export default function Home() {
                       return (
                         <path
                           key={"line" + i}
-                          d={at.segments.split("").map((s) => paths[s]).join("")}
+                          d={at.segments
+                            .split("")
+                            .map((s) => paths[s])
+                            .join("")}
                           fill="none"
                           stroke={t.hex}
                           strokeWidth=".12"
@@ -1652,110 +1778,12 @@ export default function Home() {
           )}
         </section>
       </main>
-      <PatternPreview pattern={pattern} cells={draftCells || pattern.cells} />
-      {cellMenu && (
-        <div
-          className="cell-menu-backdrop"
-          role="presentation"
-          onClick={() => setCellMenu(null)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setCellMenu(null);
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setCellMenu(null);
-          }}
-        >
-          <div
-            className="cell-menu"
-            role="menu"
-            aria-label="マスの塗り方"
-            tabIndex={-1}
-            style={{
-              left: Math.min(cellMenu.x, window.innerWidth - 180),
-              top: Math.min(cellMenu.y, window.innerHeight - 240),
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setCellMenu(null);
-            }}
-          >
-            {pattern.cells[cellMenu.cell] && (
-              <>
-                <span>塗り方</span>
-                {styleOptions.map((option) => (
-                  <button
-                    key={option.mark}
-                    role="menuitem"
-                    className={
-                      cellStyle(pattern, cellMenu.cell) === option.style
-                        ? "active"
-                        : ""
-                    }
-                    onClick={() => {
-                      const next = setCellStyle(
-                        pattern,
-                        cellMenu.cell,
-                        option.style,
-                      );
-                      if (next !== pattern) update(next);
-                      setCellMenu(null);
-                    }}
-                  >
-                    <span aria-hidden="true">{option.mark}</span>
-                    {option.label}
-                  </button>
-                ))}
-              </>
-            )}
-            <span>罫線 · 入れる線を選ぶ</span>
-            <div className="cell-menu-lines">
-              {lineOptions.map((option) => (
-                <button
-                  key={option.segment}
-                  role="menuitemcheckbox"
-                  aria-checked={
-                    cellLines(pattern, cellMenu.cell)?.segments.includes(
-                      option.segment,
-                    ) || false
-                  }
-                  aria-label={`罫線 ${option.label} ${option.mark}`}
-                  className={
-                    cellLines(pattern, cellMenu.cell)?.segments.includes(
-                      option.segment,
-                    )
-                      ? "active"
-                      : ""
-                  }
-                  onClick={() =>
-                    update(
-                      toggleCellLine(
-                        pattern,
-                        cellMenu.cell,
-                        option.segment,
-                        lineColor(cellMenu.cell),
-                      ),
-                    )
-                  }
-                >
-                  <span aria-hidden="true">{option.mark}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <PatternPreview pattern={shown} />
     </div>
   );
 }
 
-function PatternPreview({
-  pattern,
-  cells,
-}: {
-  pattern: Pattern;
-  cells: Pattern["cells"];
-}) {
+function PatternPreview({ pattern }: { pattern: Pattern }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const count = 14;
   useEffect(() => {
@@ -1770,7 +1798,7 @@ function PatternPreview({
     ctx.lineWidth = 2.4;
     ctx.lineCap = "round";
     const colors = new Map(threads.map((t) => [t.id, t.hex]));
-    cells.forEach((color, i) => {
+    pattern.cells.forEach((color, i) => {
       if (!color) return;
       const x = (i % pattern.width) * cellSize;
       const y = Math.floor(i / pattern.width) * cellSize;
@@ -1828,7 +1856,7 @@ function PatternPreview({
         ctx.stroke();
       }
     });
-  }, [cells, pattern]);
+  }, [pattern]);
   const cssWidth = (pattern.width / count) * 96,
     cssHeight = (pattern.height / count) * 96;
   const scale = Math.min(1, 180 / cssWidth, 150 / cssHeight);

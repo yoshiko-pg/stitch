@@ -845,61 +845,37 @@ summary {
   padding-top: 0;
   border-top: 0;
 }
-.cell-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-}
-.cell-menu {
-  position: fixed;
-  display: grid;
-  gap: 2px;
-  min-width: 160px;
-  padding: 6px;
-  background: #fff;
-  border: 1px solid #d4ddce;
-  border-radius: 8px;
-  box-shadow: 0 6px 24px #213c3222;
-}
-.cell-menu > span {
-  padding: 4px 8px;
-  font-size: 11px;
-  color: #64785e;
-}
-.cell-menu button {
+.brush-shapes {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  font-size: 12.5px;
-  color: #2f4a3c;
-  background: none;
-  border: 0;
-  border-radius: 5px;
-  text-align: left;
+  gap: 2px;
+  padding: 2px 4px;
+  border: 1px solid #dce3dc;
+  border-radius: 6px;
+  background: #fcfdfa;
 }
-.cell-menu button:hover {
-  background: #eef2e9;
-}
-.cell-menu button.active {
-  background: #e5ecdd;
-  color: #345238;
-  font-weight: 600;
-}
-.cell-menu-lines {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 3px;
-  padding: 0 4px 4px;
-}
-.cell-menu-lines button {
-  justify-content: center;
-  padding: 7px 0;
-  border: 1px solid #e0e6da;
+.brush-shapes > button {
   font-size: 13px;
+  line-height: 1;
+  padding: 5px 6px;
+  color: #6d7f6b;
 }
-.cell-menu-lines button.active {
-  border-color: #345238;
+.brush-shapes > button.active {
+  background: #e5ecdd;
+  color: #2c5a41;
+}
+.line-brush {
+  width: 26px;
+  height: 26px;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.line-brush.active {
+  background: #e5ecdd;
+}
+.line-brush [role='button']:focus-visible {
+  outline: 2px solid #d38b34;
 }
 .save-menu button,
 .save-menu .import-label {
