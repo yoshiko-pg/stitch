@@ -37,14 +37,44 @@ export const threads: Thread[] = [
 /** How a coloured cell is painted: a full square (null), a half triangle, or an outline. */
 export type CellStyle = "tl" | "tr" | "bl" | "br" | "frame";
 export const cellStyles: CellStyle[] = ["tl", "tr", "bl", "br", "frame"];
+/** Backstitch segments inside one cell: four edges plus the two diagonals of the ×. */
+export type LineSegment = "t" | "r" | "b" | "l" | "d" | "u";
+export const lineSegments: LineSegment[] = ["t", "r", "b", "l", "d", "u"];
 export type Pattern = {
   width: number;
   height: number;
   cells: (string | null)[];
   name: string;
   styles?: (CellStyle | null)[];
+  // Each entry encodes "<thread id>:<segments>", e.g. "310:trd".
+  lines?: (string | null)[];
 };
 export type Point = [number, number];
+export function cellLines(
+  p: Pattern,
+  cell: number,
+): { color: string; segments: string } | null {
+  const raw = p.lines?.[cell];
+  if (!raw) return null;
+  const at = raw.indexOf(":");
+  return { color: raw.slice(0, at), segments: raw.slice(at + 1) };
+}
+export function toggleCellLine(
+  p: Pattern,
+  cell: number,
+  segment: LineSegment,
+  color: string,
+): Pattern {
+  const current = cellLines(p, cell);
+  const segments = current?.segments.includes(segment)
+    ? current.segments.replace(segment, "")
+    : (current?.segments || "") + segment;
+  const lines = p.lines
+    ? [...p.lines]
+    : Array.from({ length: p.cells.length }, () => null);
+  lines[cell] = segments ? `${current?.color || color}:${segments}` : null;
+  return { ...p, lines };
+}
 export function cellStyle(p: Pattern, cell: number): CellStyle | null {
   return p.styles?.[cell] ?? null;
 }
@@ -67,7 +97,7 @@ export function trimPattern(p: Pattern): Pattern {
     right = -1,
     bottom = -1;
   p.cells.forEach((color, cell) => {
-    if (color === null) return;
+    if (color === null && !p.lines?.[cell]) return;
     const x = cell % p.width,
       y = Math.floor(cell / p.width);
     left = Math.min(left, x);
@@ -85,11 +115,13 @@ export function trimPattern(p: Pattern): Pattern {
     return p;
   const cells: Pattern["cells"] = [];
   const styles: Pattern["styles"] = p.styles && [];
+  const lines: Pattern["lines"] = p.lines && [];
   for (let y = top; y <= bottom; y++) {
     cells.push(...p.cells.slice(y * p.width + left, y * p.width + right + 1));
     styles?.push(
       ...p.styles!.slice(y * p.width + left, y * p.width + right + 1),
     );
+    lines?.push(...p.lines!.slice(y * p.width + left, y * p.width + right + 1));
   }
   return {
     ...p,
@@ -97,6 +129,7 @@ export function trimPattern(p: Pattern): Pattern {
     height: bottom - top + 1,
     cells,
     ...(styles && { styles }),
+    ...(lines && { lines }),
   };
 }
 export type Region = { x: number; y: number; width: number; height: number };
@@ -110,26 +143,38 @@ export function moveRegion(
   if (dx === 0 && dy === 0) return p;
   const cells = [...p.cells];
   const styles = p.styles && [...p.styles];
-  const moved: [number, number, string, CellStyle | null][] = [];
+  const lines = p.lines && [...p.lines];
+  const moved: [
+    number,
+    number,
+    string | null,
+    CellStyle | null,
+    string | null,
+  ][] = [];
   for (let y = region.y; y < region.y + region.height; y++)
     for (let x = region.x; x < region.x + region.width; x++) {
       const cell = y * p.width + x;
       const color = p.cells[cell];
-      if (color === null) continue;
+      const line = p.lines?.[cell] ?? null;
+      if (color === null && line === null) continue;
       cells[cell] = null;
       if (styles) styles[cell] = null;
-      moved.push([x + dx, y + dy, color, cellStyle(p, cell)]);
+      if (lines) lines[cell] = null;
+      moved.push([x + dx, y + dy, color, cellStyle(p, cell), line]);
     }
-  let changed = false;
-  for (const [x, y, color, style] of moved) {
+  for (const [x, y, color, style, line] of moved) {
     if (x < 0 || y < 0 || x >= p.width || y >= p.height) continue;
     const cell = y * p.width + x;
-    if (p.cells[cell] !== color) changed = true;
     cells[cell] = color;
     if (styles) styles[cell] = style;
+    if (lines) lines[cell] = line;
   }
-  if (!changed && cells.every((c, i) => c === p.cells[i])) return p;
-  return { ...p, cells, ...(styles && { styles }) };
+  if (
+    cells.every((c, i) => c === p.cells[i]) &&
+    (!lines || lines.every((l, i) => l === (p.lines?.[i] ?? null)))
+  )
+    return p;
+  return { ...p, cells, ...(styles && { styles }), ...(lines && { lines }) };
 }
 /** Change the canvas size, keeping stitches anchored top-left; overflow is cropped. */
 export function resizePattern(
@@ -140,13 +185,22 @@ export function resizePattern(
   if (width === p.width && height === p.height) return p;
   const cells: Pattern["cells"] = [];
   const styles: Pattern["styles"] = p.styles && [];
+  const lines: Pattern["lines"] = p.lines && [];
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       const inside = x < p.width && y < p.height;
       cells.push(inside ? p.cells[y * p.width + x] : null);
       styles?.push(inside ? p.styles![y * p.width + x] : null);
+      lines?.push(inside ? p.lines![y * p.width + x] : null);
     }
-  return { ...p, width, height, cells, ...(styles && { styles }) };
+  return {
+    ...p,
+    width,
+    height,
+    cells,
+    ...(styles && { styles }),
+    ...(lines && { lines }),
+  };
 }
 export type Stitch = {
   color: string;

@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { moveRegion, setCellStyle } from '../lib/stitch.ts';
+import { moveRegion, setCellStyle, toggleCellLine } from '../lib/stitch.ts';
+
+test('backstitch lines toggle per segment and travel with the region', () => {
+  const base = { width: 2, height: 1, cells: [null, null], name: 'lines' };
+  let p = toggleCellLine(base, 0, 't', '310');
+  p = toggleCellLine(p, 0, 'u', '310');
+  assert.deepEqual(p.lines, ['310:tu', null]);
+  p = toggleCellLine(p, 0, 't', '321');
+  assert.deepEqual(p.lines, ['310:u', null]);
+  const moved = moveRegion(p, { x: 0, y: 0, width: 1, height: 1 }, 1, 0);
+  assert.deepEqual(moved.lines, [null, '310:u']);
+  assert.equal(
+    toggleCellLine(p, 0, 'u', '310').lines[0],
+    null,
+  );
+});
 
 test('cell styles travel with their stitches', () => {
   const base = {

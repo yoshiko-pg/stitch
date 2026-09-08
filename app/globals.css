@@ -886,6 +886,21 @@ summary {
   color: #345238;
   font-weight: 600;
 }
+.cell-menu-lines {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+  padding: 0 4px 4px;
+}
+.cell-menu-lines button {
+  justify-content: center;
+  padding: 7px 0;
+  border: 1px solid #e0e6da;
+  font-size: 13px;
+}
+.cell-menu-lines button.active {
+  border-color: #345238;
+}
 .save-menu button,
 .save-menu .import-label {
   display: flex;

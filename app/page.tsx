@@ -54,7 +54,10 @@ import {
   cellStyle,
   setCellStyle,
   cellStyles,
+  cellLines,
+  toggleCellLine,
   type CellStyle,
+  type LineSegment,
   type Pattern,
   type Region,
 } from "@/lib/stitch";
@@ -239,6 +242,16 @@ export default function Home() {
           p.styles.length === p.cells.length &&
           p.styles.every(
             (s) => s === null || cellStyles.includes(s as CellStyle),
+          ))) &&
+      (p.lines === undefined ||
+        (Array.isArray(p.lines) &&
+          p.lines.length === p.cells.length &&
+          p.lines.every(
+            (l) =>
+              l === null ||
+              (typeof l === "string" &&
+                /^[^:]+:[trbldu]{1,6}$/.test(l) &&
+                threads.some((t) => t.id === l.slice(0, l.indexOf(":")))),
           ))) &&
       typeof p.name === "string"
     );
@@ -541,10 +554,6 @@ export default function Home() {
     if (!at) return;
     e.preventDefault();
     const cell = at[1] * pattern.width + at[0];
-    if (!pattern.cells[cell]) {
-      setCellMenu(null);
-      return;
-    }
     setCellMenu({ cell, x: e.clientX, y: e.clientY });
   }
   const styleOptions: {
@@ -557,8 +566,23 @@ export default function Home() {
     { style: "tr", mark: "◥", label: "右上の三角" },
     { style: "bl", mark: "◣", label: "左下の三角" },
     { style: "br", mark: "◢", label: "右下の三角" },
-    { style: "frame", mark: "□", label: "罫線（枠のみ）" },
   ];
+  const lineOptions: { segment: LineSegment; mark: string; label: string }[] = [
+    { segment: "t", mark: "▔", label: "上" },
+    { segment: "b", mark: "▁", label: "下" },
+    { segment: "l", mark: "▏", label: "左" },
+    { segment: "r", mark: "▕", label: "右" },
+    { segment: "d", mark: "＼", label: "斜め" },
+    { segment: "u", mark: "／", label: "斜め" },
+  ];
+  // Lines inherit the cell's thread; otherwise the active paint colour or black.
+  function lineColor(cell: number) {
+    return (
+      cellLines(pattern, cell)?.color ||
+      pattern.cells[cell] ||
+      (typeof paint === "string" ? paint : "310")
+    );
+  }
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
     const a = document.createElement("a");
@@ -611,6 +635,25 @@ export default function Home() {
         return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || "＋"}</text>`;
       })
       .join("");
+    const backstitch = (pattern.lines || [])
+      .map((raw, i) => {
+        if (!raw) return "";
+        const at = cellLines(pattern, i)!;
+        const t = threads.find((th) => th.id === at.color);
+        if (!t) return "";
+        const x = (i % pattern.width) * cell + pad,
+          y = Math.floor(i / pattern.width) * cell + pad;
+        const paths: Record<string, string> = {
+          t: `M${x} ${y}H${x + cell}`,
+          r: `M${x + cell} ${y}V${y + cell}`,
+          b: `M${x} ${y + cell}H${x + cell}`,
+          l: `M${x} ${y}V${y + cell}`,
+          d: `M${x} ${y}L${x + cell} ${y + cell}`,
+          u: `M${x + cell} ${y}L${x} ${y + cell}`,
+        };
+        return `<path d="${at.segments.split("").map((s) => paths[s]).join("")}" fill="none" stroke="${t.hex}" stroke-width="3" stroke-linecap="round"/>`;
+      })
+      .join("");
     const grid = [
       ...Array.from(
         { length: pattern.width + 1 },
@@ -629,7 +672,7 @@ export default function Home() {
           `<text x="35" y="${pattern.height * cell + 70 + i * 24}" font-size="15">${symbols[i]} · DMC ${t.id} · ${pattern.cells.filter((c) => c === t.id).length} stitches</text>`,
       )
       .join("");
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${grid}${legend}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${grid}${backstitch}${legend}</svg>`;
   }
   function exportSvg() {
     download(patternSvg(), "ito-pattern.svg", "image/svg+xml");
@@ -1441,6 +1484,33 @@ export default function Home() {
                         pointerEvents="none"
                       />
                     ))}
+                    {(pattern.lines || []).map((raw, i) => {
+                      if (!raw) return null;
+                      const at = cellLines(pattern, i)!;
+                      const t = threads.find((th) => th.id === at.color);
+                      if (!t) return null;
+                      const x = i % pattern.width,
+                        y = Math.floor(i / pattern.width);
+                      const paths: Record<string, string> = {
+                        t: `M${x} ${y}H${x + 1}`,
+                        r: `M${x + 1} ${y}V${y + 1}`,
+                        b: `M${x} ${y + 1}H${x + 1}`,
+                        l: `M${x} ${y}V${y + 1}`,
+                        d: `M${x} ${y}L${x + 1} ${y + 1}`,
+                        u: `M${x + 1} ${y}L${x} ${y + 1}`,
+                      };
+                      return (
+                        <path
+                          key={"line" + i}
+                          d={at.segments.split("").map((s) => paths[s]).join("")}
+                          fill="none"
+                          stroke={t.hex}
+                          strokeWidth=".12"
+                          strokeLinecap="round"
+                          pointerEvents="none"
+                        />
+                      );
+                    })}
                     {Array.from(
                       { length: Math.floor(pattern.width / 5) + 1 },
                       (_, i) => (
@@ -1610,30 +1680,68 @@ export default function Home() {
               if (e.key === "Escape") setCellMenu(null);
             }}
           >
-            <span>塗り方</span>
-            {styleOptions.map((option) => (
-              <button
-                key={option.mark}
-                role="menuitem"
-                className={
-                  cellStyle(pattern, cellMenu.cell) === option.style
-                    ? "active"
-                    : ""
-                }
-                onClick={() => {
-                  const next = setCellStyle(
-                    pattern,
-                    cellMenu.cell,
-                    option.style,
-                  );
-                  if (next !== pattern) update(next);
-                  setCellMenu(null);
-                }}
-              >
-                <span aria-hidden="true">{option.mark}</span>
-                {option.label}
-              </button>
-            ))}
+            {pattern.cells[cellMenu.cell] && (
+              <>
+                <span>塗り方</span>
+                {styleOptions.map((option) => (
+                  <button
+                    key={option.mark}
+                    role="menuitem"
+                    className={
+                      cellStyle(pattern, cellMenu.cell) === option.style
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() => {
+                      const next = setCellStyle(
+                        pattern,
+                        cellMenu.cell,
+                        option.style,
+                      );
+                      if (next !== pattern) update(next);
+                      setCellMenu(null);
+                    }}
+                  >
+                    <span aria-hidden="true">{option.mark}</span>
+                    {option.label}
+                  </button>
+                ))}
+              </>
+            )}
+            <span>罫線 · 入れる線を選ぶ</span>
+            <div className="cell-menu-lines">
+              {lineOptions.map((option) => (
+                <button
+                  key={option.segment}
+                  role="menuitemcheckbox"
+                  aria-checked={
+                    cellLines(pattern, cellMenu.cell)?.segments.includes(
+                      option.segment,
+                    ) || false
+                  }
+                  aria-label={`罫線 ${option.label} ${option.mark}`}
+                  className={
+                    cellLines(pattern, cellMenu.cell)?.segments.includes(
+                      option.segment,
+                    )
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() =>
+                    update(
+                      toggleCellLine(
+                        pattern,
+                        cellMenu.cell,
+                        option.segment,
+                        lineColor(cellMenu.cell),
+                      ),
+                    )
+                  }
+                >
+                  <span aria-hidden="true">{option.mark}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1694,6 +1802,31 @@ function PatternPreview({
       ctx.moveTo(x + 10, y + 2);
       ctx.lineTo(x + 2, y + 10);
       ctx.stroke();
+    });
+    ctx.lineWidth = 2;
+    (pattern.lines || []).forEach((raw, i) => {
+      if (!raw) return;
+      const at = cellLines(pattern, i)!;
+      const color = colors.get(at.color);
+      if (!color) return;
+      const x = (i % pattern.width) * cellSize;
+      const y = Math.floor(i / pattern.width) * cellSize;
+      ctx.strokeStyle = color;
+      const ends: Record<string, [number, number, number, number]> = {
+        t: [x, y, x + cellSize, y],
+        r: [x + cellSize, y, x + cellSize, y + cellSize],
+        b: [x, y + cellSize, x + cellSize, y + cellSize],
+        l: [x, y, x, y + cellSize],
+        d: [x, y, x + cellSize, y + cellSize],
+        u: [x + cellSize, y, x, y + cellSize],
+      };
+      for (const s of at.segments) {
+        const [x1, y1, x2, y2] = ends[s];
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
     });
   }, [cells, pattern]);
   const cssWidth = (pattern.width / count) * 96,
