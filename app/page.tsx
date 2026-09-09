@@ -25,6 +25,7 @@ import {
   Undo2,
   Eraser,
   BoxSelect,
+  Ruler,
   Plus,
   Ellipsis,
   Save,
@@ -124,6 +125,12 @@ export default function Home() {
   const [brushMode, setBrushMode] = useState<"fill" | "lines">("fill");
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
+  const [measuring, setMeasuring] = useState(false);
+  const [measure, setMeasure] = useState<Region | null>(null);
+  const measureDrag = useRef<{
+    pointerId: number;
+    anchor: [number, number];
+  } | null>(null);
   const selectDrag = useRef<
     | { pointerId: number; kind: "draw"; anchor: [number, number] }
     | {
@@ -141,10 +148,13 @@ export default function Home() {
     if (paint !== undefined) {
       setSelecting(false);
       setSelection(null);
+      setMeasuring(false);
+      setMeasure(null);
     }
   }, [paint]);
   useEffect(() => {
     setSelection(null);
+    setMeasure(null);
   }, [pattern.width, pattern.height]);
   // Keep the size fields prefilled with the current canvas size.
   useEffect(() => {
@@ -584,6 +594,44 @@ export default function Home() {
         setSelection(active.region);
       }
     }
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+  function beginMeasure(e: ReactPointerEvent<SVGSVGElement>) {
+    if (
+      view !== "pattern" ||
+      !measuring ||
+      e.button !== 0 ||
+      !e.isPrimary ||
+      measureDrag.current ||
+      !pointerCell(e)
+    )
+      return;
+    const cell = pointerCellClamped(e);
+    if (!cell) return;
+    e.preventDefault();
+    measureDrag.current = { pointerId: e.pointerId, anchor: cell };
+    setMeasure({ x: cell[0], y: cell[1], width: 1, height: 1 });
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function moveMeasure(e: ReactPointerEvent<SVGSVGElement>) {
+    const active = measureDrag.current;
+    if (!active || active.pointerId !== e.pointerId) return;
+    const cell = pointerCellClamped(e);
+    if (!cell) return;
+    const [ax, ay] = active.anchor;
+    setMeasure({
+      x: Math.min(ax, cell[0]),
+      y: Math.min(ay, cell[1]),
+      width: Math.abs(cell[0] - ax) + 1,
+      height: Math.abs(cell[1] - ay) + 1,
+    });
+  }
+  function endMeasure(e: ReactPointerEvent<SVGSVGElement>) {
+    const active = measureDrag.current;
+    if (!active || active.pointerId !== e.pointerId) return;
+    if (e.type === "pointerup") moveMeasure(e);
+    measureDrag.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
@@ -1354,6 +1402,8 @@ export default function Home() {
                       setSelection(null);
                       if (next) {
                         setPaint(undefined);
+                        setMeasuring(false);
+                        setMeasure(null);
                         setMessage(
                           "ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。",
                         );
@@ -1362,6 +1412,29 @@ export default function Home() {
                     }}
                   >
                     <BoxSelect size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    className={measuring ? "active" : ""}
+                    aria-pressed={measuring}
+                    aria-label="メジャー"
+                    title="メジャー · ドラッグして目数を測る"
+                    onClick={() => {
+                      const next = !measuring;
+                      setMeasuring(next);
+                      setMeasure(null);
+                      if (next) {
+                        setPaint(undefined);
+                        setSelecting(false);
+                        setSelection(null);
+                        setMessage(
+                          "ドラッグした範囲の目数が表示されます。もう一度押すと終了します。",
+                        );
+                      }
+                      setView("pattern");
+                    }}
+                  >
+                    <Ruler size={17} />
                   </button>
                   <button
                     aria-label="一つ戻す"
@@ -1498,20 +1571,52 @@ export default function Home() {
                 >
                   <svg
                     ref={board}
-                    onPointerDown={selecting ? beginSelect : beginStroke}
-                    onPointerMove={selecting ? moveSelect : paintStroke}
-                    onPointerUp={selecting ? endSelect : finishStroke}
-                    onPointerCancel={selecting ? endSelect : finishStroke}
-                    onLostPointerCapture={selecting ? endSelect : finishStroke}
+                    onPointerDown={
+                      measuring
+                        ? beginMeasure
+                        : selecting
+                          ? beginSelect
+                          : beginStroke
+                    }
+                    onPointerMove={
+                      measuring
+                        ? moveMeasure
+                        : selecting
+                          ? moveSelect
+                          : paintStroke
+                    }
+                    onPointerUp={
+                      measuring
+                        ? endMeasure
+                        : selecting
+                          ? endSelect
+                          : finishStroke
+                    }
+                    onPointerCancel={
+                      measuring
+                        ? endMeasure
+                        : selecting
+                          ? endSelect
+                          : finishStroke
+                    }
+                    onLostPointerCapture={
+                      measuring
+                        ? endMeasure
+                        : selecting
+                          ? endSelect
+                          : finishStroke
+                    }
                     style={{
                       touchAction:
-                        view === "pattern" && (canPaint || selecting)
+                        view === "pattern" &&
+                        (canPaint || selecting || measuring)
                           ? "none"
                           : "auto",
                     }}
                     className={
                       "pattern-grid " +
-                      (view === "pattern" && (canPaint || selecting)
+                      (view === "pattern" &&
+                      (canPaint || selecting || measuring)
                         ? "painting"
                         : "")
                     }
@@ -1696,6 +1801,37 @@ export default function Home() {
                         strokeDasharray=".34 .2"
                         pointerEvents="none"
                       />
+                    )}
+                    {view === "pattern" && measuring && measure && (
+                      <g pointerEvents="none">
+                        <rect
+                          x={measure.x + 0.05}
+                          y={measure.y + 0.05}
+                          width={measure.width - 0.1}
+                          height={measure.height - 0.1}
+                          fill="#d38b3418"
+                          stroke="#c26d1b"
+                          strokeWidth=".12"
+                          strokeDasharray=".34 .2"
+                        />
+                        <text
+                          x={measure.x + measure.width / 2}
+                          y={
+                            measure.y >= 1
+                              ? measure.y - 0.35
+                              : measure.y + measure.height + 0.85
+                          }
+                          textAnchor="middle"
+                          fontSize=".85"
+                          fontWeight="600"
+                          fill="#a35510"
+                          stroke="#fffefa"
+                          strokeWidth=".14"
+                          paintOrder="stroke"
+                        >
+                          {measure.width} × {measure.height}
+                        </text>
+                      </g>
                     )}
                     {view === "step" && current && step < sequence.length && (
                       <g pointerEvents="none">
