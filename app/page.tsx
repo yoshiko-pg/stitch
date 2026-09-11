@@ -17,7 +17,6 @@ import {
 import {
   Upload,
   ArrowRight,
-  ArrowLeft,
   Grid2X2,
   Route,
   ZoomIn,
@@ -45,7 +44,6 @@ import {
 } from "@/components/ui/native-select";
 import {
   threads,
-  route,
   sample,
   quantize,
   trimPattern,
@@ -65,14 +63,6 @@ import {
   type ConversionMode,
 } from "@/lib/image-processing";
 const symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
-const labels = {
-  start: "ここからスタート",
-  forward: "下糸を刺して進む",
-  turn: "ここで折り返す",
-  return: "上糸を刺して戻る",
-  jump: "次の列・まとまりへ移動",
-  cut: "糸を始末して、ここから再開",
-};
 export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
@@ -92,7 +82,6 @@ export default function Home() {
   const [tool, setTool] = useState("draw");
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
-  const [step, setStep] = useState(0);
   const [paint, setPaint] = useState<string | null | undefined>();
   const [mergeFrom, setMergeFrom] = useState("");
   const [mergeTo, setMergeTo] = useState("");
@@ -100,7 +89,6 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
-  const [pdfColor, setPdfColor] = useState("all");
   const [sourceName, setSourceName] = useState("");
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
@@ -164,9 +152,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState(false);
   const shown = draft || pattern;
-  const sequence = useMemo(() => route(pattern), [pattern]);
   const trimmedPattern = useMemo(() => trimPattern(pattern), [pattern]);
-  const current = sequence[Math.min(step, sequence.length - 1)];
   const palette = useMemo(
     () => threads.filter((t) => pattern.cells.includes(t.id)),
     [pattern],
@@ -190,7 +176,7 @@ export default function Home() {
     setMergeFrom("");
     setView("pattern");
     setMessage(
-      `DMC ${mergeSource.id} の ${mergeCount}目を DMC ${mergeTarget.id} にまとめました。「一つ戻す」で取り消せます。運針は最初からになります。`,
+      `DMC ${mergeSource.id} の ${mergeCount}目を DMC ${mergeTarget.id} にまとめました。「一つ戻す」で取り消せます。`,
     );
   }
   useEffect(() => {
@@ -203,20 +189,7 @@ export default function Home() {
         const s = JSON.parse(raw);
         if (valid(s.pattern)) {
           setPattern(s.pattern);
-          setStep(
-            Math.max(
-              0,
-              Math.min(
-                s.routeVersion === 4 ? Math.floor(Number(s.step)) || 0 : 0,
-                route(s.pattern).length,
-              ),
-            ),
-          );
-          setMessage(
-            s.routeVersion === 4
-              ? "前回の図案と進み具合を復元しました"
-              : "図案を復元しました。運針を最適化したため、運針は最初からになります。",
-          );
+          setMessage("前回の図案を復元しました");
         }
       }
     } catch {
@@ -227,15 +200,12 @@ export default function Home() {
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem(
-        "ito-project-v3",
-        JSON.stringify({ pattern, step, routeVersion: 4 }),
-      );
+      localStorage.setItem("ito-project-v3", JSON.stringify({ pattern }));
       setSaved(true);
     } catch {
       setSaved(false);
     }
-  }, [pattern, step, ready]);
+  }, [pattern, ready]);
   function valid(p: Pattern) {
     return (
       p &&
@@ -270,7 +240,6 @@ export default function Home() {
   function update(p: Pattern) {
     setHistory((h) => [...h.slice(-19), pattern]);
     setPattern(p);
-    setStep(0);
   }
   function imagePattern(
     img: HTMLImageElement,
@@ -319,7 +288,7 @@ export default function Home() {
     if (!source.current) return;
     try {
       update(imagePattern(source.current, sourceName || "マイ図案", w, c));
-      setMessage("図案を更新しました。運針は最初からになります。");
+      setMessage("図案を更新しました。");
     } catch {
       setMessage("画像を処理できませんでした。小さい画像でお試しください。");
     }
@@ -481,7 +450,6 @@ export default function Home() {
         styles: active.styles,
         lines: active.lines,
       });
-      setStep(0);
     }
     setDraft(null);
     if (e.currentTarget.hasPointerCapture(e.pointerId))
@@ -586,9 +554,8 @@ export default function Home() {
       if (next !== active.original) {
         setHistory((h) => [...h.slice(-19), active.original]);
         setPattern(next);
-        setStep(0);
         setMessage(
-          "選択範囲を移動しました。「一つ戻す」で取り消せます。運針は最初からになります。",
+          "選択範囲を移動しました。「一つ戻す」で取り消せます。",
         );
       } else {
         setSelection(active.region);
@@ -682,22 +649,18 @@ export default function Home() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  async function exportPdf(kind: "pattern" | "route") {
+  async function exportPdf() {
     setPdfBusy(true);
     try {
       const { createPatternPdf } = await import("@/lib/pdf-export");
       const doc = await createPatternPdf(pattern, {
-        kind,
-        color:
-          pdfColor === "all" || !palette.some((t) => t.id === pdfColor)
-            ? undefined
-            : pdfColor,
+        kind: "pattern",
         onProgress: (page) => setMessage(`PDFを作成中… ${page}ページ`),
       });
-      doc.save(`ito-${kind}-${saveStamp()}.pdf`);
+      doc.save(`ito-pattern-${saveStamp()}.pdf`);
       setMessage("PDFを保存しました");
     } catch {
-      setMessage("PDFを作成できませんでした。運針は色を絞ってお試しください。");
+      setMessage("PDFを作成できませんでした");
     } finally {
       setPdfBusy(false);
     }
@@ -770,9 +733,6 @@ export default function Home() {
       .join("");
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${grid}${backstitch}${legend}</svg>`;
   }
-  function exportSvg() {
-    download(patternSvg(), `ito-pattern-${saveStamp()}.svg`, "image/svg+xml");
-  }
   function exportPng() {
     const url = URL.createObjectURL(
       new Blob([patternSvg()], { type: "image/svg+xml" }),
@@ -817,56 +777,6 @@ export default function Home() {
       ? "#243533"
       : "#fff";
   }
-  useEffect(() => {
-    const context = (
-      document as Document & {
-        modelContext?: {
-          registerTool: (
-            tool: unknown,
-            options: { signal: AbortSignal },
-          ) => unknown;
-        };
-      }
-    ).modelContext;
-    if (!context) return;
-    const lifecycle = new AbortController();
-    try {
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: "read_stitch_guide",
-            title: "現在の運針を確認",
-            description:
-              "Read the current pattern dimensions and exact needle entry/exit holes without changing progress.",
-            inputSchema: {
-              type: "object",
-              properties: {},
-              additionalProperties: false,
-            },
-            annotations: { readOnlyHint: true, untrustedContentHint: false },
-            execute: (input: unknown) => {
-              if (
-                !input ||
-                typeof input !== "object" ||
-                Object.keys(input).length
-              )
-                throw Error("Expected an empty object");
-              return {
-                width: pattern.width,
-                height: pattern.height,
-                step: step + 1,
-                total: sequence.length,
-                complete: step >= sequence.length,
-                current: step < sequence.length ? current : null,
-              };
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ).catch(() => {});
-    } catch {}
-    return () => lifecycle.abort();
-  }, [pattern, step, current, sequence.length]);
   return (
     <div className="app-shell">
       <main className="workspace">
@@ -963,7 +873,7 @@ export default function Home() {
                       (dropped > 0
                         ? `はみ出した${dropped}目は削除されました。`
                         : "") +
-                      "「一つ戻す」で取り消せます。運針は最初からになります。",
+                      "「一つ戻す」で取り消せます。",
                   );
                 }}
               >
@@ -978,7 +888,7 @@ export default function Home() {
                   if (trimmedPattern === pattern) return;
                   update(trimmedPattern);
                   setMessage(
-                    `余白を詰めました（${pattern.width}×${pattern.height} → ${trimmedPattern.width}×${trimmedPattern.height}目）。「一つ戻す」で取り消せます。運針は最初からになります。`,
+                    `余白を詰めました（${pattern.width}×${pattern.height} → ${trimmedPattern.width}×${trimmedPattern.height}目）。「一つ戻す」で取り消せます。`,
                   );
                 }}
               >
@@ -1124,16 +1034,15 @@ export default function Home() {
                   <Route size={16} />
                   色ごとの運針
                 </TabsTrigger>
-                <TabsTrigger value="step">ひと針ずつ</TabsTrigger>
               </TabsList>
             </Tabs>
             <output
               className="status"
               title={
-                message || "まずはサンプルで、針の道すじを試してみてください。"
+                message || "自由に描いて、あなたの図案を作ってみてください。"
               }
             >
-              {message || "まずはサンプルで、針の道すじを試してみてください。"}
+              {message || "自由に描いて、あなたの図案を作ってみてください。"}
             </output>
             <Popover>
               <PopoverTrigger className="save-trigger">
@@ -1143,46 +1052,16 @@ export default function Home() {
               <PopoverContent align="end">
                 <div className="save-menu">
                   <h4>PDF</h4>
-                  <button
-                    disabled={pdfBusy}
-                    onClick={() => void exportPdf("pattern")}
-                  >
-                    図案PDFを保存
-                  </button>
-                  <label htmlFor="pdf-color">運針PDFに含める色</label>
-                  <NativeSelect
-                    id="pdf-color"
-                    value={
-                      pdfColor === "all" ||
-                      palette.some((t) => t.id === pdfColor)
-                        ? pdfColor
-                        : "all"
-                    }
-                    onChange={(e) => setPdfColor(e.target.value)}
-                  >
-                    <NativeSelectOption value="all">
-                      すべての色
-                    </NativeSelectOption>
-                    {palette.map((t, i) => (
-                      <NativeSelectOption key={t.id} value={t.id}>
-                        {symbols[i]} · DMC {t.id}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                  <button
-                    disabled={pdfBusy || !palette.length}
-                    onClick={() => void exportPdf("route")}
-                  >
-                    {pdfBusy ? "PDFを作成中…" : "運針PDFを保存"}
+                  <button disabled={pdfBusy} onClick={() => void exportPdf()}>
+                    {pdfBusy ? "PDFを作成中…" : "図案PDFを保存"}
                   </button>
                   <h4>画像</h4>
                   <button onClick={exportPng}>図案PNGを保存</button>
-                  <button onClick={exportSvg}>図案SVGを保存</button>
                   <h4>作業データ</h4>
                   <button
                     onClick={() =>
                       download(
-                        JSON.stringify({ pattern, step, routeVersion: 4 }),
+                        JSON.stringify({ pattern }),
                         `ito-project-${saveStamp()}.json`,
                         "application/json",
                       )
@@ -1206,17 +1085,6 @@ export default function Home() {
                           update(s.pattern);
                           source.current = null;
                           setSourceName("");
-                          setStep(
-                            Math.max(
-                              0,
-                              Math.min(
-                                s.routeVersion === 4
-                                  ? Math.floor(Number(s.step)) || 0
-                                  : 0,
-                                route(s.pattern).length,
-                              ),
-                            ),
-                          );
                           setMessage("作業を読み込みました");
                         } catch {
                           setMessage("この作業ファイルは読み込めません");
@@ -1224,16 +1092,6 @@ export default function Home() {
                       }}
                     />
                   </label>
-                  <button
-                    onClick={() => {
-                      source.current = null;
-                      setSourceName("");
-                      update(sample());
-                      setMessage("サンプルに切り替えました");
-                    }}
-                  >
-                    サンプルを開く
-                  </button>
                   <p>
                     {saved
                       ? "この端末に自動保存されています"
@@ -1447,7 +1305,6 @@ export default function Home() {
                     onClick={() => {
                       setPattern(history[history.length - 1]);
                       setHistory((h) => h.slice(0, -1));
-                      setStep(0);
                     }}
                   >
                     <Undo2 size={17} />
@@ -1627,7 +1484,7 @@ export default function Home() {
                     }
                     viewBox={`-2 -2 ${pattern.width + 4} ${pattern.height + 4}`}
                     role="img"
-                    aria-label={`${pattern.width}×${pattern.height}目の図案。運針位置を枠で表示。`}
+                    aria-label={`${pattern.width}×${pattern.height}目の図案。`}
                   >
                     <rect
                       x={0}
@@ -1641,8 +1498,6 @@ export default function Home() {
                       const x = i % pattern.width,
                         y = Math.floor(i / pattern.width);
                       const s = cellStyle(shown, i);
-                      const faded =
-                        view === "step" && current && c !== current.color;
                       const triangle = {
                         tl: `M${x} ${y}h1L${x} ${y + 1}Z`,
                         tr: `M${x} ${y}h1v1Z`,
@@ -1650,7 +1505,7 @@ export default function Home() {
                         br: `M${x + 1} ${y}v1h-1Z`,
                       };
                       return (
-                        <g key={i} opacity={faded ? 0.2 : 1}>
+                        <g key={i}>
                           {t && s === null && (
                             <rect
                               x={x}
@@ -1838,84 +1693,10 @@ export default function Home() {
                         </text>
                       </g>
                     )}
-                    {view === "step" && current && step < sequence.length && (
-                      <g pointerEvents="none">
-                        <rect
-                          x={(current.cell % pattern.width) - 0.12}
-                          y={Math.floor(current.cell / pattern.width) - 0.12}
-                          width={1.24}
-                          height={1.24}
-                          fill="none"
-                          stroke="#102f2b"
-                          strokeWidth=".14"
-                        />
-                        <circle
-                          cx={current.from[0]}
-                          cy={current.from[1]}
-                          r=".18"
-                          fill="#16a085"
-                          stroke="white"
-                          strokeWidth=".05"
-                        />
-                        <circle
-                          cx={current.to[0]}
-                          cy={current.to[1]}
-                          r=".18"
-                          fill="#f16b43"
-                          stroke="white"
-                          strokeWidth=".05"
-                        />
-                      </g>
-                    )}
                   </svg>
                 </div>
               </div>
             </>
-          )}
-          {view === "step" && (
-            <div className="step-navigation">
-              <button
-                className="outline"
-                disabled={step === 0}
-                onClick={() => setStep((s) => s - 1)}
-              >
-                <ArrowLeft size={16} />
-                戻る
-              </button>
-              <div aria-live="polite">
-                {current && step < sequence.length ? (
-                  <>
-                    <strong>
-                      {step + 1} / {sequence.length} · DMC {current.color} ·{" "}
-                      {labels[current.kind]}
-                    </strong>
-                    <span>
-                      出す穴 ({current.from.join(", ")}) → 入れる穴 (
-                      {current.to.join(", ")})
-                    </span>
-                    {current.kind === "cut" && (
-                      <span>
-                        裏で糸を始末し、新しい糸を固定して再開します。
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <strong>
-                    {sequence.length
-                      ? "完成です。最後に裏で糸を始末します。"
-                      : "色のあるマスを作ると運針が表示されます。"}
-                  </strong>
-                )}
-              </div>
-              <button
-                className="primary"
-                disabled={step >= sequence.length}
-                onClick={() => setStep((s) => s + 1)}
-              >
-                次へ
-                <ArrowRight size={16} />
-              </button>
-            </div>
           )}
         </section>
       </main>

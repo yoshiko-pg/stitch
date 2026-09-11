@@ -293,7 +293,8 @@ h1 {
   border-radius: 12px;
   background: white;
   overflow: visible;
-  min-height: 790px;
+  min-height: calc(100vh - 36px);
+  min-height: calc(100dvh - 36px);
   box-shadow: 0 8px 35px #30483704;
 }
 .settings,
@@ -535,7 +536,6 @@ h1 {
   display: grid;
   align-items: center;
   min-height: 430px;
-  max-height: 720px;
   padding: 10px 20px 20px;
   background-image: radial-gradient(#b6c2ad 0.65px, transparent 0.65px);
   background-size: 12px 12px;
@@ -1489,39 +1489,6 @@ summary,
 .pattern-grid.painting {
   user-select: none;
   -webkit-user-select: none;
-}
-
-.step-navigation {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px;
-  background: #fafcf7;
-  border-top: 1px solid #dce3dc;
-}
-.step-navigation > div {
-  flex: 1;
-  font-size: 14px;
-  line-height: 1.8;
-}
-.step-navigation strong,
-.step-navigation span {
-  display: block;
-}
-.step-navigation strong {
-  font-weight: 500;
-}
-@media (max-width: 650px) {
-  .step-navigation {
-    padding: 14px;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .step-navigation > div {
-    order: -1;
-    flex-basis: 100%;
-  }
 }
 
 .overview-map-scroll svg {

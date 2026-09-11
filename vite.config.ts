@@ -1,14 +1,18 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/postcss';
-import { fileURLToPath } from 'node:url';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/postcss";
+import { fileURLToPath } from "node:url";
 
 // Relative assets work at both / and GitHub Pages /repository/ URLs.
 export default defineConfig({
-  base: './',
+  base: "./",
   plugins: [react()],
-  resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
+  resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
   css: { postcss: { plugins: [tailwindcss()] } },
-  server: { host: '127.0.0.1', port: 3000, strictPort: true },
-  build: { outDir: 'dist', emptyOutDir: true },
+  server: {
+    host: "127.0.0.1",
+    port: Number(process.env.PORT) || 3000,
+    strictPort: true,
+  },
+  build: { outDir: "dist", emptyOutDir: true },
 });
