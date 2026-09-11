@@ -554,9 +554,7 @@ export default function Home() {
       if (next !== active.original) {
         setHistory((h) => [...h.slice(-19), active.original]);
         setPattern(next);
-        setMessage(
-          "選択範囲を移動しました。「一つ戻す」で取り消せます。",
-        );
+        setMessage("選択範囲を移動しました。「一つ戻す」で取り消せます。");
       } else {
         setSelection(active.region);
       }
@@ -1036,13 +1034,8 @@ export default function Home() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <output
-              className="status"
-              title={
-                message || "自由に描いて、あなたの図案を作ってみてください。"
-              }
-            >
-              {message || "自由に描いて、あなたの図案を作ってみてください。"}
+            <output className="status" title={message}>
+              {message}
             </output>
             <Popover>
               <PopoverTrigger className="save-trigger">
