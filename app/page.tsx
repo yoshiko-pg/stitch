@@ -669,6 +669,11 @@ export default function Home() {
     setBrushMode(next ? "lines" : "fill");
     setView("pattern");
   }
+  function saveStamp() {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  }
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
     const a = document.createElement("a");
@@ -689,7 +694,7 @@ export default function Home() {
             : pdfColor,
         onProgress: (page) => setMessage(`PDFを作成中… ${page}ページ`),
       });
-      doc.save(`ito-${kind}.pdf`);
+      doc.save(`ito-${kind}-${saveStamp()}.pdf`);
       setMessage("PDFを保存しました");
     } catch {
       setMessage("PDFを作成できませんでした。運針は色を絞ってお試しください。");
@@ -766,7 +771,7 @@ export default function Home() {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${grid}${backstitch}${legend}</svg>`;
   }
   function exportSvg() {
-    download(patternSvg(), "ito-pattern.svg", "image/svg+xml");
+    download(patternSvg(), `ito-pattern-${saveStamp()}.svg`, "image/svg+xml");
   }
   function exportPng() {
     const url = URL.createObjectURL(
@@ -794,7 +799,7 @@ export default function Home() {
         const pngUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = pngUrl;
-        a.download = "ito-pattern.png";
+        a.download = `ito-pattern-${saveStamp()}.png`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
         setMessage("図案PNGを保存しました");
@@ -1178,7 +1183,7 @@ export default function Home() {
                     onClick={() =>
                       download(
                         JSON.stringify({ pattern, step, routeVersion: 4 }),
-                        "ito-project.json",
+                        `ito-project-${saveStamp()}.json`,
                         "application/json",
                       )
                     }
