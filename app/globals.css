@@ -292,7 +292,9 @@ h1 {
   border: 1px solid #dce3dc;
   border-radius: 12px;
   background: white;
-  overflow: visible;
+  /* clip (not hidden) keeps the sticky settings panel working while
+     rounding off the inner panel backgrounds */
+  overflow: clip;
   min-height: calc(100vh - 36px);
   min-height: calc(100dvh - 36px);
   box-shadow: 0 8px 35px #30483704;
