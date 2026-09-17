@@ -1,19 +1,19 @@
-"use client";
+'use client';
 // Client-only persistence deliberately hydrates after mount; the compiler rule also reports an internal PruneHoistedContexts invariant here.
 /* oxlint-disable react/react-compiler */
 // Inline SVGs require an accessible image role; replacing them with img would lose their dynamic geometry.
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 // The pattern board is an interactive drawing surface despite its image role.
 /* oxlint-disable jsx-a11y/no-noninteractive-element-interactions */
-import { DotTextTool } from "@/components/dot-text-tool";
-import { RouteOverview } from "./route-overview";
+import { DotTextTool } from '@/components/dot-text-tool';
+import { RouteOverview } from './route-overview';
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-} from "react";
+} from 'react';
 import {
   Upload,
   ArrowRight,
@@ -28,20 +28,20 @@ import {
   Plus,
   Ellipsis,
   Save,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+} from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   NativeSelect,
   NativeSelectOption,
-} from "@/components/ui/native-select";
+} from '@/components/ui/native-select';
 import {
   threads,
   sample,
@@ -49,6 +49,7 @@ import {
   trimPattern,
   moveRegion,
   resizePattern,
+  doublePattern,
   cellStyle,
   cellStyles,
   cellLines,
@@ -56,18 +57,18 @@ import {
   type LineSegment,
   type Pattern,
   type Region,
-} from "@/lib/stitch";
+} from '@/lib/stitch';
 import {
   representativePixels,
   simplifySpeckles,
   type ConversionMode,
-} from "@/lib/image-processing";
-const symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
+} from '@/lib/image-processing';
+const symbols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
 export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
-  const [canvasWidth, setCanvasWidth] = useState("32");
-  const [canvasHeight, setCanvasHeight] = useState("32");
+  const [canvasWidth, setCanvasWidth] = useState('32');
+  const [canvasHeight, setCanvasHeight] = useState('32');
   const validCanvasSize = [canvasWidth, canvasHeight].every(
     (value) =>
       Number.isInteger(Number(value)) &&
@@ -76,20 +77,20 @@ export default function Home() {
   );
   const [colors, setColors] = useState(8);
   const [conversionMode, setConversionMode] =
-    useState<ConversionMode>("illustration");
+    useState<ConversionMode>('illustration');
   const [speckles, setSpeckles] = useState(0);
-  const [view, setView] = useState("pattern");
-  const [tool, setTool] = useState("draw");
+  const [view, setView] = useState('pattern');
+  const [tool, setTool] = useState('draw');
   const [showSymbols, setShowSymbols] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [paint, setPaint] = useState<string | null | undefined>();
-  const [mergeFrom, setMergeFrom] = useState("");
-  const [mergeTo, setMergeTo] = useState("");
+  const [mergeFrom, setMergeFrom] = useState('');
+  const [mergeTo, setMergeTo] = useState('');
   const [history, setHistory] = useState<Pattern[]>([]);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
-  const [sourceName, setSourceName] = useState("");
+  const [sourceName, setSourceName] = useState('');
   const source = useRef<HTMLImageElement | null>(null);
   const upload = useRef<HTMLInputElement>(null);
   const board = useRef<SVGSVGElement>(null);
@@ -102,15 +103,15 @@ export default function Home() {
     styles: (CellStyle | null)[];
     lines: (string | null)[];
     color: string | null;
-    mode: "fill" | "lines";
+    mode: 'fill' | 'lines';
     brush: CellStyle | null;
     segments: string;
     last: [number, number] | null;
     changed: boolean;
   } | null>(null);
   const [brush, setBrush] = useState<CellStyle | null>(null);
-  const [lineBrush, setLineBrush] = useState("");
-  const [brushMode, setBrushMode] = useState<"fill" | "lines">("fill");
+  const [lineBrush, setLineBrush] = useState('');
+  const [brushMode, setBrushMode] = useState<'fill' | 'lines'>('fill');
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
   const [measuring, setMeasuring] = useState(false);
@@ -120,10 +121,10 @@ export default function Home() {
     anchor: [number, number];
   } | null>(null);
   const selectDrag = useRef<
-    | { pointerId: number; kind: "draw"; anchor: [number, number] }
+    | { pointerId: number; kind: 'draw'; anchor: [number, number] }
     | {
         pointerId: number;
-        kind: "move";
+        kind: 'move';
         origin: [number, number];
         region: Region;
         original: Pattern;
@@ -173,8 +174,8 @@ export default function Home() {
       ),
     });
     setPaint(mergeTarget.id);
-    setMergeFrom("");
-    setView("pattern");
+    setMergeFrom('');
+    setView('pattern');
     setMessage(
       `DMC ${mergeSource.id} の ${mergeCount}目を DMC ${mergeTarget.id} にまとめました。「一つ戻す」で取り消せます。`,
     );
@@ -182,25 +183,25 @@ export default function Home() {
   useEffect(() => {
     try {
       const raw =
-        localStorage.getItem("ito-project-v3") ||
-        localStorage.getItem("ito-project-v2") ||
-        localStorage.getItem("ito-project-v1");
+        localStorage.getItem('ito-project-v3') ||
+        localStorage.getItem('ito-project-v2') ||
+        localStorage.getItem('ito-project-v1');
       if (raw) {
         const s = JSON.parse(raw);
         if (valid(s.pattern)) {
           setPattern(s.pattern);
-          setMessage("前回の図案を復元しました");
+          setMessage('前回の図案を復元しました');
         }
       }
     } catch {
-      setMessage("保存データを読み込めませんでした");
+      setMessage('保存データを読み込めませんでした');
     }
     setReady(true);
   }, []);
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem("ito-project-v3", JSON.stringify({ pattern }));
+      localStorage.setItem('ito-project-v3', JSON.stringify({ pattern }));
       setSaved(true);
     } catch {
       setSaved(false);
@@ -230,11 +231,11 @@ export default function Home() {
           p.lines.every(
             (l) =>
               l === null ||
-              (typeof l === "string" &&
+              (typeof l === 'string' &&
                 /^[^:]+:[trbldu]{1,6}$/.test(l) &&
-                threads.some((t) => t.id === l.slice(0, l.indexOf(":")))),
+                threads.some((t) => t.id === l.slice(0, l.indexOf(':')))),
           ))) &&
-      typeof p.name === "string"
+      typeof p.name === 'string'
     );
   }
   function update(p: Pattern) {
@@ -250,9 +251,9 @@ export default function Home() {
     const ratio = img.naturalHeight / img.naturalWidth;
     const h = Math.max(1, Math.min(120, Math.round(w * ratio)));
     const actualW = Math.max(1, Math.min(120, Math.round(h / ratio)));
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     let pixels: Uint8ClampedArray;
-    if (conversionMode === "illustration") {
+    if (conversionMode === 'illustration') {
       // Bound source readback memory; nearest sampling never blends source colours.
       const scale = Math.min(
         1,
@@ -260,7 +261,7 @@ export default function Home() {
       );
       canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-      const ctx = canvas.getContext("2d")!;
+      const ctx = canvas.getContext('2d')!;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       pixels = representativePixels(
@@ -273,34 +274,34 @@ export default function Home() {
     } else {
       canvas.width = actualW;
       canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.imageSmoothingEnabled = conversionMode === "photo";
-      ctx.imageSmoothingQuality = "high";
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = conversionMode === 'photo';
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, actualW, h);
       pixels = ctx.getImageData(0, 0, actualW, h).data;
     }
     const result = quantize(pixels, actualW, h, count, name);
-    return conversionMode === "illustration"
+    return conversionMode === 'illustration'
       ? simplifySpeckles(result, speckles)
       : result;
   }
   function convert(w = width, c = colors) {
     if (!source.current) return;
     try {
-      update(imagePattern(source.current, sourceName || "マイ図案", w, c));
-      setMessage("図案を更新しました。");
+      update(imagePattern(source.current, sourceName || 'マイ図案', w, c));
+      setMessage('図案を更新しました。');
     } catch {
-      setMessage("画像を処理できませんでした。小さい画像でお試しください。");
+      setMessage('画像を処理できませんでした。小さい画像でお試しください。');
     }
   }
   function load(file?: File) {
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) {
-      setMessage("20MB以下の画像を選んでください");
+      setMessage('20MB以下の画像を選んでください');
       return;
     }
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      setMessage("PNG・JPEG・WebPの画像を選んでください");
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setMessage('PNG・JPEG・WebPの画像を選んでください');
       return;
     }
     setBusy(true);
@@ -310,18 +311,18 @@ export default function Home() {
       try {
         source.current = img;
         setSourceName(file.name);
-        update(imagePattern(img, file.name.replace(/\.[^.]+$/, "")));
-        setMessage("画像から図案を作りました");
-        setView("pattern");
+        update(imagePattern(img, file.name.replace(/\.[^.]+$/, '')));
+        setMessage('画像から図案を作りました');
+        setView('pattern');
       } catch {
-        setMessage("画像を処理できませんでした");
+        setMessage('画像を処理できませんでした');
       } finally {
         setBusy(false);
         URL.revokeObjectURL(url);
       }
     };
     img.onerror = () => {
-      setMessage("画像を読み込めませんでした");
+      setMessage('画像を読み込めませんでした');
       setBusy(false);
       URL.revokeObjectURL(url);
     };
@@ -363,7 +364,7 @@ export default function Home() {
     // Fill skipped cells between pointer events, including fast diagonal strokes.
     while (true) {
       const i = y * active.original.width + x;
-      if (active.mode === "lines") {
+      if (active.mode === 'lines') {
         // The line brush stamps exactly the selected segments; the eraser removes them.
         const value =
           active.color === null ? null : `${active.color}:${active.segments}`;
@@ -406,11 +407,11 @@ export default function Home() {
         lines: [...active.lines],
       });
   }
-  const lineMode = brushMode === "lines" && lineBrush.length > 0;
+  const lineMode = brushMode === 'lines' && lineBrush.length > 0;
   const canPaint = paint !== undefined || lineMode;
   function beginStroke(e: ReactPointerEvent<SVGSVGElement>) {
     if (
-      view !== "pattern" ||
+      view !== 'pattern' ||
       !canPaint ||
       e.button !== 0 ||
       !e.isPrimary ||
@@ -427,8 +428,8 @@ export default function Home() {
       cells: [...pattern.cells],
       styles: pattern.styles ? [...pattern.styles] : blank(),
       lines: pattern.lines ? [...pattern.lines] : blank(),
-      color: paint === undefined ? "310" : paint,
-      mode: lineMode ? "lines" : "fill",
+      color: paint === undefined ? '310' : paint,
+      mode: lineMode ? 'lines' : 'fill',
       brush,
       segments: lineBrush,
       last: null,
@@ -440,7 +441,7 @@ export default function Home() {
   function finishStroke(e: ReactPointerEvent<SVGSVGElement>) {
     const active = stroke.current;
     if (!active || active.pointerId !== e.pointerId) return;
-    if (e.type === "pointerup") paintStroke(e);
+    if (e.type === 'pointerup') paintStroke(e);
     stroke.current = null;
     if (active.changed) {
       setHistory((h) => [...h.slice(-19), active.original]);
@@ -470,7 +471,7 @@ export default function Home() {
   }
   function beginSelect(e: ReactPointerEvent<SVGSVGElement>) {
     if (
-      view !== "pattern" ||
+      view !== 'pattern' ||
       !selecting ||
       e.button !== 0 ||
       !e.isPrimary ||
@@ -490,13 +491,13 @@ export default function Home() {
     selectDrag.current = inside
       ? {
           pointerId: e.pointerId,
-          kind: "move",
+          kind: 'move',
           origin: cell,
           region: selection,
           original: pattern,
           offset: [0, 0],
         }
-      : { pointerId: e.pointerId, kind: "draw", anchor: cell };
+      : { pointerId: e.pointerId, kind: 'draw', anchor: cell };
     if (!inside) setSelection({ x: cell[0], y: cell[1], width: 1, height: 1 });
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -505,7 +506,7 @@ export default function Home() {
     if (!active || active.pointerId !== e.pointerId) return;
     const cell = pointerCellClamped(e);
     if (!cell) return;
-    if (active.kind === "draw") {
+    if (active.kind === 'draw') {
       const [ax, ay] = active.anchor;
       setSelection({
         x: Math.min(ax, cell[0]),
@@ -542,19 +543,19 @@ export default function Home() {
   function endSelect(e: ReactPointerEvent<SVGSVGElement>) {
     const active = selectDrag.current;
     if (!active || active.pointerId !== e.pointerId) return;
-    if (e.type === "pointerup") moveSelect(e);
+    if (e.type === 'pointerup') moveSelect(e);
     selectDrag.current = null;
     setDraft(null);
-    if (active.kind === "move") {
+    if (active.kind === 'move') {
       // An interrupted drag reverts; only a completed pointerup commits the move.
       const next =
-        e.type === "pointerup"
+        e.type === 'pointerup'
           ? moveRegion(active.original, active.region, ...active.offset)
           : active.original;
       if (next !== active.original) {
         setHistory((h) => [...h.slice(-19), active.original]);
         setPattern(next);
-        setMessage("選択範囲を移動しました。「一つ戻す」で取り消せます。");
+        setMessage('選択範囲を移動しました。「一つ戻す」で取り消せます。');
       } else {
         setSelection(active.region);
       }
@@ -564,7 +565,7 @@ export default function Home() {
   }
   function beginMeasure(e: ReactPointerEvent<SVGSVGElement>) {
     if (
-      view !== "pattern" ||
+      view !== 'pattern' ||
       !measuring ||
       e.button !== 0 ||
       !e.isPrimary ||
@@ -595,7 +596,7 @@ export default function Home() {
   function endMeasure(e: ReactPointerEvent<SVGSVGElement>) {
     const active = measureDrag.current;
     if (!active || active.pointerId !== e.pointerId) return;
-    if (e.type === "pointerup") moveMeasure(e);
+    if (e.type === 'pointerup') moveMeasure(e);
     measureDrag.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -605,11 +606,11 @@ export default function Home() {
     mark: string;
     label: string;
   }[] = [
-    { style: null, mark: "■", label: "全面" },
-    { style: "tl", mark: "◤", label: "左上の三角" },
-    { style: "tr", mark: "◥", label: "右上の三角" },
-    { style: "bl", mark: "◣", label: "左下の三角" },
-    { style: "br", mark: "◢", label: "右下の三角" },
+    { style: null, mark: '■', label: '全面' },
+    { style: 'tl', mark: '◤', label: '左上の三角' },
+    { style: 'tr', mark: '◥', label: '右上の三角' },
+    { style: 'bl', mark: '◣', label: '左下の三角' },
+    { style: 'br', mark: '◢', label: '右下の三角' },
   ];
   const glyphSegments: {
     segment: LineSegment;
@@ -619,29 +620,29 @@ export default function Home() {
     x2: number;
     y2: number;
   }[] = [
-    { segment: "t", label: "上の罫線", x1: 3, y1: 3, x2: 19, y2: 3 },
-    { segment: "b", label: "下の罫線", x1: 3, y1: 19, x2: 19, y2: 19 },
-    { segment: "l", label: "左の罫線", x1: 3, y1: 3, x2: 3, y2: 19 },
-    { segment: "r", label: "右の罫線", x1: 19, y1: 3, x2: 19, y2: 19 },
-    { segment: "d", label: "斜めの罫線（＼）", x1: 3, y1: 3, x2: 19, y2: 19 },
-    { segment: "u", label: "斜めの罫線（／）", x1: 19, y1: 3, x2: 3, y2: 19 },
+    { segment: 't', label: '上の罫線', x1: 3, y1: 3, x2: 19, y2: 3 },
+    { segment: 'b', label: '下の罫線', x1: 3, y1: 19, x2: 19, y2: 19 },
+    { segment: 'l', label: '左の罫線', x1: 3, y1: 3, x2: 3, y2: 19 },
+    { segment: 'r', label: '右の罫線', x1: 19, y1: 3, x2: 19, y2: 19 },
+    { segment: 'd', label: '斜めの罫線（＼）', x1: 3, y1: 3, x2: 19, y2: 19 },
+    { segment: 'u', label: '斜めの罫線（／）', x1: 19, y1: 3, x2: 3, y2: 19 },
   ];
   function toggleGlyphSegment(segment: LineSegment) {
     const next = lineBrush.includes(segment)
-      ? lineBrush.replace(segment, "")
+      ? lineBrush.replace(segment, '')
       : lineBrush + segment;
     setLineBrush(next);
-    setBrushMode(next ? "lines" : "fill");
-    setView("pattern");
+    setBrushMode(next ? 'lines' : 'fill');
+    setView('pattern');
   }
   function saveStamp() {
     const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
+    const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
   }
   function download(text: string, name: string, type: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = name;
     a.click();
@@ -650,15 +651,15 @@ export default function Home() {
   async function exportPdf() {
     setPdfBusy(true);
     try {
-      const { createPatternPdf } = await import("@/lib/pdf-export");
+      const { createPatternPdf } = await import('@/lib/pdf-export');
       const doc = await createPatternPdf(pattern, {
-        kind: "pattern",
+        kind: 'pattern',
         onProgress: (page) => setMessage(`PDFを作成中… ${page}ページ`),
       });
       doc.save(`ito-pattern-${saveStamp()}.pdf`);
-      setMessage("PDFを保存しました");
+      setMessage('PDFを保存しました');
     } catch {
-      setMessage("PDFを作成できませんでした");
+      setMessage('PDFを作成できませんでした');
     } finally {
       setPdfBusy(false);
     }
@@ -668,12 +669,12 @@ export default function Home() {
       pad = 35;
     const body = pattern.cells
       .map((c, i) => {
-        if (!c) return "";
+        if (!c) return '';
         const t = threads.find((t) => t.id === c)!;
         const x = (i % pattern.width) * cell + pad,
           y = Math.floor(i / pattern.width) * cell + pad;
         const s = cellStyle(pattern, i);
-        if (s === "frame")
+        if (s === 'frame')
           return `<rect x="${x + 2}" y="${y + 2}" width="18" height="18" fill="none" stroke="${t.hex}" stroke-width="3"/>`;
         if (s) {
           const triangle = {
@@ -684,15 +685,15 @@ export default function Home() {
           };
           return `<path d="${triangle[s]}" fill="${t.hex}"/>`;
         }
-        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || "＋"}</text>`;
+        return `<rect x="${x}" y="${y}" width="22" height="22" fill="${t.hex}"/><text x="${x + 11}" y="${y + 15}" text-anchor="middle" font-size="12" fill="${ink(t.hex)}">${symbols[palette.indexOf(t)] || '＋'}</text>`;
       })
-      .join("");
+      .join('');
     const backstitch = (pattern.lines || [])
       .map((raw, i) => {
-        if (!raw) return "";
+        if (!raw) return '';
         const at = cellLines(pattern, i)!;
         const t = threads.find((th) => th.id === at.color);
-        if (!t) return "";
+        if (!t) return '';
         const x = (i % pattern.width) * cell + pad,
           y = Math.floor(i / pattern.width) * cell + pad;
         const paths: Record<string, string> = {
@@ -704,76 +705,76 @@ export default function Home() {
           u: `M${x + cell} ${y}L${x} ${y + cell}`,
         };
         return `<path d="${at.segments
-          .split("")
+          .split('')
           .map((s) => paths[s])
           .join(
-            "",
+            '',
           )}" fill="none" stroke="${t.hex}" stroke-width="3" stroke-linecap="round"/>`;
       })
-      .join("");
+      .join('');
     const grid = [
       ...Array.from(
         { length: pattern.width + 1 },
         (_, x) =>
-          `<path d="M${x * cell + pad} ${pad}V${pattern.height * cell + pad}" stroke="${x % 10 === 0 ? "#6f807d" : "#b7beb5"}" stroke-width="${x % 10 === 0 ? 1.4 : 0.5}"/>`,
+          `<path d="M${x * cell + pad} ${pad}V${pattern.height * cell + pad}" stroke="${x % 10 === 0 ? '#6f807d' : '#b7beb5'}" stroke-width="${x % 10 === 0 ? 1.4 : 0.5}"/>`,
       ),
       ...Array.from(
         { length: pattern.height + 1 },
         (_, y) =>
-          `<path d="M${pad} ${y * cell + pad}H${pattern.width * cell + pad}" stroke="${y % 10 === 0 ? "#6f807d" : "#b7beb5"}" stroke-width="${y % 10 === 0 ? 1.4 : 0.5}"/>`,
+          `<path d="M${pad} ${y * cell + pad}H${pattern.width * cell + pad}" stroke="${y % 10 === 0 ? '#6f807d' : '#b7beb5'}" stroke-width="${y % 10 === 0 ? 1.4 : 0.5}"/>`,
       ),
-    ].join("");
+    ].join('');
     const legend = palette
       .map(
         (t, i) =>
           `<text x="35" y="${pattern.height * cell + 70 + i * 24}" font-size="15">${symbols[i]} · DMC ${t.id} · ${pattern.cells.filter((c) => c === t.id).length} stitches</text>`,
       )
-      .join("");
+      .join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(360, pattern.width * cell + 70)}" height="${pattern.height * cell + 100 + palette.length * 24}"><rect width="100%" height="100%" fill="white"/><text x="35" y="23" font-size="16">ito / ${pattern.width} x ${pattern.height}</text>${body}${grid}${backstitch}${legend}</svg>`;
   }
   function exportPng() {
     const url = URL.createObjectURL(
-      new Blob([patternSvg()], { type: "image/svg+xml" }),
+      new Blob([patternSvg()], { type: 'image/svg+xml' }),
     );
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
       const scale = 2;
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth * scale;
       canvas.height = img.naturalHeight * scale;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext('2d');
       if (!ctx) {
-        setMessage("図案PNGを作成できませんでした");
+        setMessage('図案PNGを作成できませんでした');
         return;
       }
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0);
       canvas.toBlob((blob) => {
         if (!blob) {
-          setMessage("図案PNGを作成できませんでした");
+          setMessage('図案PNGを作成できませんでした');
           return;
         }
         const pngUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        const a = document.createElement('a');
         a.href = pngUrl;
         a.download = `ito-pattern-${saveStamp()}.png`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
-        setMessage("図案PNGを保存しました");
-      }, "image/png");
+        setMessage('図案PNGを保存しました');
+      }, 'image/png');
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      setMessage("図案PNGを作成できませんでした");
+      setMessage('図案PNGを作成できませんでした');
     };
     img.src = url;
   }
   function ink(hex: string) {
     const n = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     return n[0] * 0.299 + n[1] * 0.587 + n[2] * 0.114 > 150
-      ? "#243533"
-      : "#fff";
+      ? '#243533'
+      : '#fff';
   }
   return (
     <div className="app-shell">
@@ -786,7 +787,7 @@ export default function Home() {
               <TabsTrigger value="image">画像から</TabsTrigger>
             </TabsList>
           </Tabs>
-          {tool === "draw" && (
+          {tool === 'draw' && (
             <form
               className="freehand-controls"
               onSubmit={(e) => {
@@ -798,12 +799,12 @@ export default function Home() {
                   width: w,
                   height: h,
                   cells: Array.from({ length: w * h }, () => null),
-                  name: "手描きの図案",
+                  name: '手描きの図案',
                 });
                 source.current = null;
-                setSourceName("");
-                setPaint("310");
-                setView("pattern");
+                setSourceName('');
+                setPaint('310');
+                setView('pattern');
                 setZoom(1);
                 setMessage(
                   `${w}×${h}目のキャンバスを作りました。黒で描けます。糸色は図案上の「＋」から追加できます。「一つ戻す」で前の図案に戻せます。`,
@@ -865,17 +866,39 @@ export default function Home() {
                     pattern.cells.filter(Boolean).length -
                     next.cells.filter(Boolean).length;
                   update(next);
-                  setView("pattern");
+                  setView('pattern');
                   setMessage(
                     `キャンバスを${pattern.width}×${pattern.height}目から${w}×${h}目に変更しました。` +
                       (dropped > 0
                         ? `はみ出した${dropped}目は削除されました。`
-                        : "") +
-                      "「一つ戻す」で取り消せます。",
+                        : '') +
+                      '「一つ戻す」で取り消せます。',
                   );
                 }}
               >
                 今の図案をこのサイズに変更
+              </button>
+              <button
+                className="outline full"
+                type="button"
+                disabled={busy || pattern.width > 60 || pattern.height > 60}
+                title={
+                  pattern.width > 60 || pattern.height > 60
+                    ? '2倍にすると上限の120目を超えます'
+                    : '1目を2×2目にして、絵を2倍の大きさにします'
+                }
+                onClick={() => {
+                  const next = doublePattern(pattern);
+                  update(next);
+                  setCanvasWidth(String(next.width));
+                  setCanvasHeight(String(next.height));
+                  setView('pattern');
+                  setMessage(
+                    `絵を2倍にしました（${pattern.width}×${pattern.height} → ${next.width}×${next.height}目）。「一つ戻す」で取り消せます。`,
+                  );
+                }}
+              >
+                今の絵を2倍にする
               </button>
               <button
                 className="outline full"
@@ -894,15 +917,15 @@ export default function Home() {
               </button>
             </form>
           )}
-          {tool === "text" && (
+          {tool === 'text' && (
             <DotTextTool
               pattern={pattern}
               onPlace={(next) => {
                 update(next);
-                setView("pattern");
+                setView('pattern');
                 setPaint(undefined);
                 setMessage(
-                  "ドット文字を配置しました。「一つ戻す」で取り消せます。",
+                  'ドット文字を配置しました。「一つ戻す」で取り消せます。',
                 );
               }}
             />
@@ -914,10 +937,10 @@ export default function Home() {
             hidden
             onChange={(e) => {
               load(e.target.files?.[0]);
-              e.target.value = "";
+              e.target.value = '';
             }}
           />
-          {tool === "image" && (
+          {tool === 'image' && (
             <>
               <button
                 className="upload-zone"
@@ -931,7 +954,7 @@ export default function Home() {
               >
                 <Upload size={23} />
                 <strong>
-                  {busy ? "変換しています…" : "画像をアップロード"}
+                  {busy ? '変換しています…' : '画像をアップロード'}
                 </strong>
               </button>
               <div className="conversion-controls">
@@ -954,7 +977,7 @@ export default function Home() {
                     写真向け · なめらか
                   </NativeSelectOption>
                 </NativeSelect>
-                {conversionMode === "illustration" && (
+                {conversionMode === 'illustration' && (
                   <>
                     <label htmlFor="speckles">近い色の小さな点を整理</label>
                     <NativeSelect
@@ -978,7 +1001,7 @@ export default function Home() {
               </div>
               <div className="setting">
                 <label id="size-label">
-                  横の目数{" "}
+                  横の目数{' '}
                   <strong>
                     {width}
                     <small> 目</small>
@@ -995,7 +1018,7 @@ export default function Home() {
               </div>
               <div className="setting">
                 <label id="color-label">
-                  使う色数の上限{" "}
+                  使う色数の上限{' '}
                   <strong>
                     {colors}
                     <small> 色</small>
@@ -1046,7 +1069,7 @@ export default function Home() {
                 <div className="save-menu">
                   <h4>PDF</h4>
                   <button disabled={pdfBusy} onClick={() => void exportPdf()}>
-                    {pdfBusy ? "PDFを作成中…" : "図案PDFを保存"}
+                    {pdfBusy ? 'PDFを作成中…' : '図案PDFを保存'}
                   </button>
                   <h4>画像</h4>
                   <button onClick={exportPng}>図案PNGを保存</button>
@@ -1056,7 +1079,7 @@ export default function Home() {
                       download(
                         JSON.stringify({ pattern }),
                         `ito-project-${saveStamp()}.json`,
-                        "application/json",
+                        'application/json',
                       )
                     }
                   >
@@ -1077,24 +1100,24 @@ export default function Home() {
                           if (!valid(s.pattern)) throw Error();
                           update(s.pattern);
                           source.current = null;
-                          setSourceName("");
-                          setMessage("作業を読み込みました");
+                          setSourceName('');
+                          setMessage('作業を読み込みました');
                         } catch {
-                          setMessage("この作業ファイルは読み込めません");
+                          setMessage('この作業ファイルは読み込めません');
                         }
                       }}
                     />
                   </label>
                   <p>
                     {saved
-                      ? "この端末に自動保存されています"
-                      : "画像は端末内で処理されます"}
+                      ? 'この端末に自動保存されています'
+                      : '画像は端末内で処理されます'}
                   </p>
                 </div>
               </PopoverContent>
             </Popover>
           </div>
-          {view === "guide" ? (
+          {view === 'guide' ? (
             <RouteOverview pattern={pattern} />
           ) : (
             <>
@@ -1103,10 +1126,10 @@ export default function Home() {
                   <RadioGroup
                     className="paint-color-options"
                     aria-label="塗る色"
-                    value={paint || ""}
+                    value={paint || ''}
                     onValueChange={(value) => {
                       setPaint(String(value));
-                      setView("pattern");
+                      setView('pattern');
                     }}
                   >
                     {palette.map((t, i) => (
@@ -1143,7 +1166,7 @@ export default function Home() {
                               style={{ background: t.hex, color: ink(t.hex) }}
                               onClick={() => {
                                 setPaint(t.id);
-                                setView("pattern");
+                                setView('pattern');
                               }}
                             >
                               {t.id}
@@ -1154,13 +1177,13 @@ export default function Home() {
                   </Popover>
                   <button
                     type="button"
-                    className={paint === null ? "active" : ""}
+                    className={paint === null ? 'active' : ''}
                     aria-pressed={paint === null}
                     aria-label="消しゴム"
                     title="消しゴム · ドラッグして目を消す"
                     onClick={() => {
                       setPaint(paint === null ? undefined : null);
-                      setView("pattern");
+                      setView('pattern');
                     }}
                   >
                     <Eraser size={17} />
@@ -1175,19 +1198,19 @@ export default function Home() {
                         key={option.mark}
                         type="button"
                         className={
-                          brushMode === "fill" && brush === option.style
-                            ? "active"
-                            : ""
+                          brushMode === 'fill' && brush === option.style
+                            ? 'active'
+                            : ''
                         }
                         aria-pressed={
-                          brushMode === "fill" && brush === option.style
+                          brushMode === 'fill' && brush === option.style
                         }
                         aria-label={`${option.label}で塗る`}
                         title={`${option.label}で塗る`}
                         onClick={() => {
-                          setBrushMode("fill");
+                          setBrushMode('fill');
                           setBrush(option.style);
-                          setView("pattern");
+                          setView('pattern');
                         }}
                       >
                         {option.mark}
@@ -1195,7 +1218,7 @@ export default function Home() {
                     ))}
                     <svg
                       className={
-                        "line-brush " + (brushMode === "lines" ? "active" : "")
+                        'line-brush ' + (brushMode === 'lines' ? 'active' : '')
                       }
                       viewBox="0 0 22 22"
                       role="group"
@@ -1211,8 +1234,8 @@ export default function Home() {
                             y2={seg.y2}
                             stroke={
                               lineBrush.includes(seg.segment)
-                                ? "#2c5a41"
-                                : "#c9d3c5"
+                                ? '#2c5a41'
+                                : '#c9d3c5'
                             }
                             strokeWidth={
                               lineBrush.includes(seg.segment) ? 2.6 : 1.8
@@ -1234,7 +1257,7 @@ export default function Home() {
                             aria-label={seg.label}
                             onClick={() => toggleGlyphSegment(seg.segment)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
+                              if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 toggleGlyphSegment(seg.segment);
                               }
@@ -1248,7 +1271,7 @@ export default function Home() {
                   </div>
                   <button
                     type="button"
-                    className={selecting ? "active" : ""}
+                    className={selecting ? 'active' : ''}
                     aria-pressed={selecting}
                     aria-label="範囲選択"
                     title="範囲選択 · ドラッグで範囲を選び、選択範囲をドラッグして移動"
@@ -1261,17 +1284,17 @@ export default function Home() {
                         setMeasuring(false);
                         setMeasure(null);
                         setMessage(
-                          "ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。",
+                          'ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。',
                         );
                       }
-                      setView("pattern");
+                      setView('pattern');
                     }}
                   >
                     <BoxSelect size={17} />
                   </button>
                   <button
                     type="button"
-                    className={measuring ? "active" : ""}
+                    className={measuring ? 'active' : ''}
                     aria-pressed={measuring}
                     aria-label="メジャー"
                     title="メジャー · ドラッグして目数を測る"
@@ -1284,10 +1307,10 @@ export default function Home() {
                         setSelecting(false);
                         setSelection(null);
                         setMessage(
-                          "ドラッグした範囲の目数が表示されます。もう一度押すと終了します。",
+                          'ドラッグした範囲の目数が表示されます。もう一度押すと終了します。',
                         );
                       }
-                      setView("pattern");
+                      setView('pattern');
                     }}
                   >
                     <Ruler size={17} />
@@ -1315,11 +1338,11 @@ export default function Home() {
                         <label htmlFor="merge-from">置き換える色</label>
                         <NativeSelect
                           id="merge-from"
-                          value={mergeSource?.id || ""}
+                          value={mergeSource?.id || ''}
                           disabled={palette.length < 2}
                           onChange={(e) => {
                             setMergeFrom(e.target.value);
-                            setView("pattern");
+                            setView('pattern');
                             setPaint(undefined);
                           }}
                         >
@@ -1328,7 +1351,7 @@ export default function Home() {
                           </NativeSelectOption>
                           {palette.map((t, i) => (
                             <NativeSelectOption key={t.id} value={t.id}>
-                              {symbols[i]} · DMC {t.id} ·{" "}
+                              {symbols[i]} · DMC {t.id} ·{' '}
                               {pattern.cells.filter((c) => c === t.id).length}目
                             </NativeSelectOption>
                           ))}
@@ -1336,7 +1359,7 @@ export default function Home() {
                         <label htmlFor="merge-to">残す色</label>
                         <NativeSelect
                           id="merge-to"
-                          value={mergeTarget?.id || ""}
+                          value={mergeTarget?.id || ''}
                           disabled={palette.length < 2}
                           onChange={(e) => setMergeTo(e.target.value)}
                         >
@@ -1382,7 +1405,7 @@ export default function Home() {
                         >
                           {canMerge
                             ? `${mergeCount}目をまとめる`
-                            : "色を選んでまとめる"}
+                            : '色を選んでまとめる'}
                         </button>
                       </section>
                     </PopoverContent>
@@ -1405,7 +1428,7 @@ export default function Home() {
                     <ZoomIn size={17} />
                   </button>
                   <button
-                    className={"symbol-toggle " + (showSymbols ? "on" : "")}
+                    className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
                     aria-pressed={showSymbols}
                     onClick={() => setShowSymbols(!showSymbols)}
                   >
@@ -1463,17 +1486,17 @@ export default function Home() {
                     }
                     style={{
                       touchAction:
-                        view === "pattern" &&
+                        view === 'pattern' &&
                         (canPaint || selecting || measuring)
-                          ? "none"
-                          : "auto",
+                          ? 'none'
+                          : 'auto',
                     }}
                     className={
-                      "pattern-grid " +
-                      (view === "pattern" &&
+                      'pattern-grid ' +
+                      (view === 'pattern' &&
                       (canPaint || selecting || measuring)
-                        ? "painting"
-                        : "")
+                        ? 'painting'
+                        : '')
                     }
                     viewBox={`-2 -2 ${pattern.width + 4} ${pattern.height + 4}`}
                     role="img"
@@ -1508,10 +1531,10 @@ export default function Home() {
                               fill={t.hex}
                             />
                           )}
-                          {t && s && s !== "frame" && (
+                          {t && s && s !== 'frame' && (
                             <path d={triangle[s]} fill={t.hex} />
                           )}
-                          {t && s === "frame" && (
+                          {t && s === 'frame' && (
                             <rect
                               x={x + 0.09}
                               y={y + 0.09}
@@ -1533,7 +1556,7 @@ export default function Home() {
                                 fill={ink(t.hex)}
                                 fontFamily="monospace"
                               >
-                                {symbols[palette.indexOf(t)] || "＋"}
+                                {symbols[palette.indexOf(t)] || '＋'}
                               </text>
                             ) : (
                               <path
@@ -1549,18 +1572,18 @@ export default function Home() {
                     })}
                     {Array.from({ length: pattern.width + 1 }, (_, x) => (
                       <path
-                        key={"x" + x}
+                        key={'x' + x}
                         d={`M${x} 0V${pattern.height}`}
-                        stroke={x % 10 === 0 ? "#6f807d" : "#b7beb5"}
+                        stroke={x % 10 === 0 ? '#6f807d' : '#b7beb5'}
                         strokeWidth={x % 10 === 0 ? 0.055 : 0.018}
                         pointerEvents="none"
                       />
                     ))}
                     {Array.from({ length: pattern.height + 1 }, (_, y) => (
                       <path
-                        key={"y" + y}
+                        key={'y' + y}
                         d={`M0 ${y}H${pattern.width}`}
-                        stroke={y % 10 === 0 ? "#6f807d" : "#b7beb5"}
+                        stroke={y % 10 === 0 ? '#6f807d' : '#b7beb5'}
                         strokeWidth={y % 10 === 0 ? 0.055 : 0.018}
                         pointerEvents="none"
                       />
@@ -1582,11 +1605,11 @@ export default function Home() {
                       };
                       return (
                         <path
-                          key={"line" + i}
+                          key={'line' + i}
                           d={at.segments
-                            .split("")
+                            .split('')
                             .map((s) => paths[s])
-                            .join("")}
+                            .join('')}
                           fill="none"
                           stroke={t.hex}
                           strokeWidth=".12"
@@ -1599,7 +1622,7 @@ export default function Home() {
                       { length: Math.floor(pattern.width / 5) + 1 },
                       (_, i) => (
                         <text
-                          key={"nx" + i}
+                          key={'nx' + i}
                           x={i * 5}
                           y={-0.65}
                           fontSize=".6"
@@ -1614,7 +1637,7 @@ export default function Home() {
                       { length: Math.floor(pattern.height / 5) + 1 },
                       (_, i) => (
                         <text
-                          key={"ny" + i}
+                          key={'ny' + i}
                           x={-1}
                           y={i * 5 + 0.2}
                           fontSize=".6"
@@ -1625,12 +1648,12 @@ export default function Home() {
                         </text>
                       ),
                     )}
-                    {view === "pattern" &&
+                    {view === 'pattern' &&
                       mergeSource &&
                       pattern.cells.map((c, i) =>
                         c === mergeSource.id ? (
                           <rect
-                            key={"merge-" + i}
+                            key={'merge-' + i}
                             x={(i % pattern.width) + 0.07}
                             y={Math.floor(i / pattern.width) + 0.07}
                             width={0.86}
@@ -1642,7 +1665,7 @@ export default function Home() {
                           />
                         ) : null,
                       )}
-                    {view === "pattern" && selecting && selection && (
+                    {view === 'pattern' && selecting && selection && (
                       <rect
                         x={selection.x + 0.05}
                         y={selection.y + 0.05}
@@ -1655,7 +1678,7 @@ export default function Home() {
                         pointerEvents="none"
                       />
                     )}
-                    {view === "pattern" && measuring && measure && (
+                    {view === 'pattern' && measuring && measure && (
                       <g pointerEvents="none">
                         <rect
                           x={measure.x + 0.05}
@@ -1707,26 +1730,26 @@ function PatternPreview({ pattern }: { pattern: Pattern }) {
     const cellSize = 12;
     target.width = pattern.width * cellSize;
     target.height = pattern.height * cellSize;
-    const ctx = target.getContext("2d");
+    const ctx = target.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, target.width, target.height);
     ctx.lineWidth = 2.4;
-    ctx.lineCap = "round";
+    ctx.lineCap = 'round';
     const colors = new Map(threads.map((t) => [t.id, t.hex]));
     pattern.cells.forEach((color, i) => {
       if (!color) return;
       const x = (i % pattern.width) * cellSize;
       const y = Math.floor(i / pattern.width) * cellSize;
-      ctx.strokeStyle = colors.get(color) || "#ffffff";
+      ctx.strokeStyle = colors.get(color) || '#ffffff';
       const s = cellStyle(pattern, i);
-      if (s === "frame") {
+      if (s === 'frame') {
         ctx.strokeRect(x + 2, y + 2, 8, 8);
         return;
       }
       if (s) {
         // A half stitch: a single diagonal along the triangle's hypotenuse.
         ctx.beginPath();
-        if (s === "tl" || s === "br") {
+        if (s === 'tl' || s === 'br') {
           ctx.moveTo(x + 10, y + 2);
           ctx.lineTo(x + 2, y + 10);
         } else {
@@ -1788,8 +1811,8 @@ function PatternPreview({ pattern }: { pattern: Pattern }) {
           />
         </div>
         <p title="14ctの布での完成サイズ目安です。画面上の大きさは端末によって変わります。">
-          {((pattern.width / count) * 2.54).toFixed(1)} ×{" "}
-          {((pattern.height / count) * 2.54).toFixed(1)} cm{" "}
+          {((pattern.width / count) * 2.54).toFixed(1)} ×{' '}
+          {((pattern.height / count) * 2.54).toFixed(1)} cm{' '}
           <span>14ct目安</span>
         </p>
       </div>

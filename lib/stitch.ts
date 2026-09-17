@@ -1,45 +1,45 @@
 export type Thread = { id: string; name: string; hex: string };
 // DMC numbers identify actual Mouliné Spécial threads. RGB values are approximate display swatches.
 export const threads: Thread[] = [
-  ["Blanc", "白", "f5f4ed"],
-  ["310", "黒", "252528"],
-  ["318", "ライトグレー", "a5a5a5"],
-  ["414", "ダークグレー", "666971"],
-  ["321", "赤", "bb2439"],
-  ["666", "ブライトレッド", "e33139"],
-  ["761", "ライトサーモン", "f5b6b7"],
-  ["3716", "ピンク", "f2a0b2"],
-  ["814", "ワイン", "722438"],
-  ["740", "オレンジ", "f78026"],
-  ["743", "イエロー", "f8d77a"],
-  ["444", "レモン", "f1cd25"],
-  [" Ecru", "生成り", "e8dfc3"],
-  ["801", "ダークブラウン", "69412f"],
-  ["433", "ブラウン", "835a3b"],
-  ["435", "ライトブラウン", "ba8959"],
-  ["3865", "ウィンターホワイト", "f5f1e7"],
-  ["469", "オリーブ", "728144"],
-  ["470", "ライトオリーブ", "95a64d"],
-  ["3347", "グリーン", "71935c"],
-  ["699", "深緑", "17663c"],
-  ["702", "ケリーグリーン", "399447"],
-  ["3846", "ターコイズ", "36b8bd"],
-  ["3810", "ブルーグリーン", "488f92"],
-  ["597", "ライトターコイズ", "78b8c4"],
-  ["3755", "ベビーブルー", "91b7d5"],
-  ["798", "ブルー", "5276aa"],
-  ["797", "ロイヤルブルー", "354e91"],
-  ["820", "ネイビー", "263460"],
-  ["550", "バイオレット", "64396f"],
-  ["552", "パープル", "9460a0"],
-  ["153", "ライトバイオレット", "dfc5e4"],
-].map(([id, name, hex]) => ({ id: id.trim(), name, hex: "#" + hex }));
+  ['Blanc', '白', 'f5f4ed'],
+  ['310', '黒', '252528'],
+  ['318', 'ライトグレー', 'a5a5a5'],
+  ['414', 'ダークグレー', '666971'],
+  ['321', '赤', 'bb2439'],
+  ['666', 'ブライトレッド', 'e33139'],
+  ['761', 'ライトサーモン', 'f5b6b7'],
+  ['3716', 'ピンク', 'f2a0b2'],
+  ['814', 'ワイン', '722438'],
+  ['740', 'オレンジ', 'f78026'],
+  ['743', 'イエロー', 'f8d77a'],
+  ['444', 'レモン', 'f1cd25'],
+  [' Ecru', '生成り', 'e8dfc3'],
+  ['801', 'ダークブラウン', '69412f'],
+  ['433', 'ブラウン', '835a3b'],
+  ['435', 'ライトブラウン', 'ba8959'],
+  ['3865', 'ウィンターホワイト', 'f5f1e7'],
+  ['469', 'オリーブ', '728144'],
+  ['470', 'ライトオリーブ', '95a64d'],
+  ['3347', 'グリーン', '71935c'],
+  ['699', '深緑', '17663c'],
+  ['702', 'ケリーグリーン', '399447'],
+  ['3846', 'ターコイズ', '36b8bd'],
+  ['3810', 'ブルーグリーン', '488f92'],
+  ['597', 'ライトターコイズ', '78b8c4'],
+  ['3755', 'ベビーブルー', '91b7d5'],
+  ['798', 'ブルー', '5276aa'],
+  ['797', 'ロイヤルブルー', '354e91'],
+  ['820', 'ネイビー', '263460'],
+  ['550', 'バイオレット', '64396f'],
+  ['552', 'パープル', '9460a0'],
+  ['153', 'ライトバイオレット', 'dfc5e4'],
+].map(([id, name, hex]) => ({ id: id.trim(), name, hex: '#' + hex }));
 /** How a coloured cell is painted: a full square (null), a half triangle, or an outline. */
-export type CellStyle = "tl" | "tr" | "bl" | "br" | "frame";
-export const cellStyles: CellStyle[] = ["tl", "tr", "bl", "br", "frame"];
+export type CellStyle = 'tl' | 'tr' | 'bl' | 'br' | 'frame';
+export const cellStyles: CellStyle[] = ['tl', 'tr', 'bl', 'br', 'frame'];
 /** Backstitch segments inside one cell: four edges plus the two diagonals of the ×. */
-export type LineSegment = "t" | "r" | "b" | "l" | "d" | "u";
-export const lineSegments: LineSegment[] = ["t", "r", "b", "l", "d", "u"];
+export type LineSegment = 't' | 'r' | 'b' | 'l' | 'd' | 'u';
+export const lineSegments: LineSegment[] = ['t', 'r', 'b', 'l', 'd', 'u'];
 export type Pattern = {
   width: number;
   height: number;
@@ -56,7 +56,7 @@ export function cellLines(
 ): { color: string; segments: string } | null {
   const raw = p.lines?.[cell];
   if (!raw) return null;
-  const at = raw.indexOf(":");
+  const at = raw.indexOf(':');
   return { color: raw.slice(0, at), segments: raw.slice(at + 1) };
 }
 export function toggleCellLine(
@@ -67,8 +67,8 @@ export function toggleCellLine(
 ): Pattern {
   const current = cellLines(p, cell);
   const segments = current?.segments.includes(segment)
-    ? current.segments.replace(segment, "")
-    : (current?.segments || "") + segment;
+    ? current.segments.replace(segment, '')
+    : (current?.segments || '') + segment;
   const lines = p.lines
     ? [...p.lines]
     : Array.from({ length: p.cells.length }, () => null);
@@ -113,9 +113,9 @@ export function trimPattern(p: Pattern): Pattern {
       bottom === p.height - 1)
   )
     return p;
-  const cells: Pattern["cells"] = [];
-  const styles: Pattern["styles"] = p.styles && [];
-  const lines: Pattern["lines"] = p.lines && [];
+  const cells: Pattern['cells'] = [];
+  const styles: Pattern['styles'] = p.styles && [];
+  const lines: Pattern['lines'] = p.lines && [];
   for (let y = top; y <= bottom; y++) {
     cells.push(...p.cells.slice(y * p.width + left, y * p.width + right + 1));
     styles?.push(
@@ -183,9 +183,9 @@ export function resizePattern(
   height: number,
 ): Pattern {
   if (width === p.width && height === p.height) return p;
-  const cells: Pattern["cells"] = [];
-  const styles: Pattern["styles"] = p.styles && [];
-  const lines: Pattern["lines"] = p.lines && [];
+  const cells: Pattern['cells'] = [];
+  const styles: Pattern['styles'] = p.styles && [];
+  const lines: Pattern['lines'] = p.lines && [];
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       const inside = x < p.width && y < p.height;
@@ -202,12 +202,60 @@ export function resizePattern(
     ...(lines && { lines }),
   };
 }
+/** Doubles the pattern: every cell becomes a 2×2 block, keeping triangles and backstitch lines in shape. */
+export function doublePattern(p: Pattern): Pattern {
+  const width = p.width * 2,
+    height = p.height * 2;
+  const cells: Pattern['cells'] = [];
+  const styles: Pattern['styles'] = p.styles && [];
+  const lines: Pattern['lines'] = p.lines && [];
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const from = (y >> 1) * p.width + (x >> 1);
+      const dx = x & 1,
+        dy = y & 1;
+      let cell = p.cells[from];
+      let style = p.styles?.[from] ?? null;
+      if (style && style !== 'frame') {
+        // A triangle's corner block is full, the opposite block is empty.
+        const cx = style[1] === 'l' ? 0 : 1,
+          cy = style[0] === 't' ? 0 : 1;
+        if (dx === cx && dy === cy) style = null;
+        else if (dx !== cx && dy !== cy) cell = style = null;
+      }
+      cells.push(cell);
+      styles?.push(cell ? style : null);
+      if (!lines) continue;
+      const at = cellLines(p, from);
+      const segments = (at?.segments || '')
+        .split('')
+        .filter(
+          (s) =>
+            (s === 't' && dy === 0) ||
+            (s === 'b' && dy === 1) ||
+            (s === 'l' && dx === 0) ||
+            (s === 'r' && dx === 1) ||
+            (s === 'd' && dx === dy) ||
+            (s === 'u' && dx !== dy),
+        )
+        .join('');
+      lines.push(segments ? `${at!.color}:${segments}` : null);
+    }
+  return {
+    ...p,
+    width,
+    height,
+    cells,
+    ...(styles && { styles }),
+    ...(lines && { lines }),
+  };
+}
 export type Stitch = {
   color: string;
   cell: number;
   from: Point;
   to: Point;
-  kind: "start" | "forward" | "turn" | "return" | "jump" | "cut";
+  kind: 'start' | 'forward' | 'turn' | 'return' | 'jump' | 'cut';
   travel: number;
 };
 export function baselineRoute(p: Pattern): Stitch[] {
@@ -232,12 +280,12 @@ export function baselineRoute(p: Pattern): Stitch[] {
             ? Math.hypot(from[0] - previous[0], from[1] - previous[1])
             : 0;
           const kind = !previous
-            ? "start"
+            ? 'start'
             : a === start
               ? travel > 3
-                ? "cut"
-                : "jump"
-              : "forward";
+                ? 'cut'
+                : 'jump'
+              : 'forward';
           result.push({ color, cell: y * p.width + a, from, to, kind, travel });
           previous = to;
         }
@@ -249,7 +297,7 @@ export function baselineRoute(p: Pattern): Stitch[] {
             cell: y * p.width + a,
             from,
             to,
-            kind: a === end ? "turn" : "return",
+            kind: a === end ? 'turn' : 'return',
             travel: Math.hypot(from[0] - previous![0], from[1] - previous![1]),
           });
           previous = to;
@@ -263,7 +311,7 @@ const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 function variants(p: Pattern, color: string): Variant[] {
   const groups: Stitch[][] = [];
   for (const s of baselineRoute(p).filter((s) => s.color === color)) {
-    if (["start", "jump", "cut"].includes(s.kind)) groups.push([]);
+    if (['start', 'jump', 'cut'].includes(s.kind)) groups.push([]);
     groups.at(-1)!.push(s);
   }
   return groups.flatMap((group) => {
@@ -285,12 +333,12 @@ function variants(p: Pattern, color: string): Variant[] {
             to,
             kind:
               result.length === 0
-                ? "start"
+                ? 'start'
                 : upper
                   ? result.length === cells.length
-                    ? "turn"
-                    : "return"
-                  : "forward",
+                    ? 'turn'
+                    : 'return'
+                  : 'forward',
             travel: 0,
           });
         }
@@ -341,15 +389,15 @@ function enter(v: Variant, previous?: Point): Stitch[] {
   copy.forEach((s, i) => {
     const prev = i ? copy[i - 1].to : previous;
     s.travel = prev ? distance(prev, s.from) : 0;
-    if (!i) s.kind = !prev ? "start" : s.travel > 3 ? "cut" : "jump";
+    if (!i) s.kind = !prev ? 'start' : s.travel > 3 ? 'cut' : 'jump';
   });
   return copy;
 }
 export function routeMetrics(steps: Stitch[]) {
   return {
-    cuts: steps.filter((s) => s.kind === "cut").length,
+    cuts: steps.filter((s) => s.kind === 'cut').length,
     backLength: steps.reduce(
-      (sum, s) => sum + (["cut", "start"].includes(s.kind) ? 0 : s.travel),
+      (sum, s) => sum + (['cut', 'start'].includes(s.kind) ? 0 : s.travel),
       0,
     ),
   };
@@ -530,16 +578,16 @@ export function sample(): Pattern {
     return d > 10
       ? null
       : d > 8
-        ? "797"
+        ? '797'
         : d > 6
-          ? "3755"
+          ? '3755'
           : d > 4
-            ? "743"
+            ? '743'
             : d > 2
-              ? "321"
-              : "Blanc";
+              ? '321'
+              : 'Blanc';
   });
-  return { width, height, cells, name: "ひし形のステッチサンプラー" };
+  return { width, height, cells, name: 'ひし形のステッチサンプラー' };
 }
 
 export type RouteRun = {
@@ -551,7 +599,7 @@ export function colorRuns(pattern: Pattern, color: string): RouteRun[] {
   route(pattern)
     .filter((s) => s.color === color)
     .forEach((s, i) => {
-      if (["start", "jump", "cut"].includes(s.kind)) {
+      if (['start', 'jump', 'cut'].includes(s.kind)) {
         runs.push({ id: runs.length + 1, steps: [] });
       }
       runs[runs.length - 1].steps.push({ ...s, needleNumber: i + 1 });
