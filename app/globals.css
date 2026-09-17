@@ -1772,3 +1772,15 @@ summary,
 .dot-text-preview svg {
   max-width: none;
 }
+
+.tip-wrap {
+  display: inline-flex;
+}
+.tip-wrap > button:disabled {
+  pointer-events: none;
+}
+[data-slot='tooltip-content'].tip,
+[data-slot='tooltip-content'].tip > :last-child {
+  background: #111;
+  color: #fff;
+}

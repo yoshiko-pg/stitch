@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type ReactElement,
 } from 'react';
 import {
   Upload,
@@ -35,6 +36,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1128,364 +1135,390 @@ export default function Home() {
             <RouteOverview pattern={pattern} />
           ) : (
             <>
-              <div className="canvas-actions">
-                <div className="edit-tools">
-                  <RadioGroup
-                    className="paint-color-options"
-                    aria-label="塗る色"
-                    value={paint || ''}
-                    onValueChange={(value) => {
-                      setPaint(String(value));
-                      setView('pattern');
-                    }}
-                  >
-                    {palette.map((t, i) => (
-                      <label
-                        key={t.id}
-                        className="paint-choice"
-                        htmlFor={`paint-${t.id}`}
-                        title={`DMC ${t.id} · ${t.name}`}
-                      >
-                        <RadioGroupItem
-                          id={`paint-${t.id}`}
-                          value={t.id}
-                          aria-label={`${symbols[i]} · DMC ${t.id} · ${t.name}`}
-                          className="paint-color-radio"
-                          style={{ background: t.hex, color: ink(t.hex) }}
-                        />
-                      </label>
-                    ))}
-                  </RadioGroup>
-                  <Popover>
-                    <PopoverTrigger title="ほかの糸色を追加">
-                      <Plus size={17} />
-                    </PopoverTrigger>
-                    <PopoverContent align="start">
-                      <div className="extra-palette">
-                        {threads
-                          .filter((t) => !palette.includes(t))
-                          .map((t) => (
-                            <button
-                              key={t.id}
-                              title={`DMC ${t.id} ${t.name}`}
-                              aria-label={`DMC ${t.id} ${t.name}で描く`}
-                              style={{ background: t.hex, color: ink(t.hex) }}
-                              onClick={() => {
-                                setPaint(t.id);
-                                setView('pattern');
-                              }}
-                            >
-                              {t.id}
-                            </button>
-                          ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <button
-                    type="button"
-                    className={paint === null ? 'active' : ''}
-                    aria-pressed={paint === null}
-                    aria-label="消しゴム"
-                    title="消しゴム · ドラッグして目を消す"
-                    onClick={() => {
-                      setPaint(paint === null ? undefined : null);
-                      setView('pattern');
-                    }}
-                  >
-                    <Eraser size={17} />
-                  </button>
-                  <Popover open={brushOpen} onOpenChange={setBrushOpen}>
-                    <PopoverTrigger
-                      className="brush-trigger"
-                      aria-label="塗る形を選ぶ"
-                      title="塗る形を選ぶ"
+              <TooltipProvider delay={150}>
+                <div className="canvas-actions">
+                  <div className="edit-tools">
+                    <RadioGroup
+                      className="paint-color-options"
+                      aria-label="塗る色"
+                      value={paint || ''}
+                      onValueChange={(value) => {
+                        setPaint(String(value));
+                        setView('pattern');
+                      }}
                     >
-                      {brushMode === 'lines' ? (
-                        <svg viewBox="0 0 22 22" aria-hidden="true">
-                          {glyphSegments
-                            .filter((seg) => lineBrush.includes(seg.segment))
-                            .map((seg) => (
-                              <line
-                                key={seg.segment}
-                                x1={seg.x1}
-                                y1={seg.y1}
-                                x2={seg.x2}
-                                y2={seg.y2}
-                                stroke="#2c5a41"
-                                strokeWidth={2.6}
-                                strokeLinecap="round"
-                              />
-                            ))}
-                        </svg>
-                      ) : (
-                        brushOptions.find((o) => o.style === brush)?.mark
-                      )}
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-auto p-1">
-                      <div
-                        className="brush-shapes"
-                        role="group"
-                        aria-label="塗る形"
-                      >
-                        {brushOptions.map((option) => (
-                          <button
-                            key={option.mark}
-                            type="button"
-                            className={
-                              brushMode === 'fill' && brush === option.style
-                                ? 'active'
-                                : ''
-                            }
-                            aria-pressed={
-                              brushMode === 'fill' && brush === option.style
-                            }
-                            aria-label={`${option.label}で塗る`}
-                            title={`${option.label}で塗る`}
-                            onClick={() => {
-                              setBrushMode('fill');
-                              setBrush(option.style);
-                              setView('pattern');
-                              setBrushOpen(false);
-                            }}
+                      {palette.map((t, i) => (
+                        <Tip label={`DMC ${t.id} · ${t.name}`} key={t.id}>
+                          <label
+                            key={t.id}
+                            className="paint-choice"
+                            htmlFor={`paint-${t.id}`}
                           >
-                            {option.mark}
-                          </button>
-                        ))}
-                        <svg
-                          className={
-                            'line-brush ' +
-                            (brushMode === 'lines' ? 'active' : '')
-                          }
-                          viewBox="0 0 22 22"
-                          role="group"
-                          aria-label="罫線で塗る · 入れる線をクリックで選択"
-                        >
-                          <title>罫線で塗る · 入れる線をクリックで選択</title>
-                          {glyphSegments.map((seg) => (
-                            <g key={seg.segment}>
-                              <line
-                                x1={seg.x1}
-                                y1={seg.y1}
-                                x2={seg.x2}
-                                y2={seg.y2}
-                                stroke={
-                                  lineBrush.includes(seg.segment)
-                                    ? '#2c5a41'
-                                    : '#c9d3c5'
-                                }
-                                strokeWidth={
-                                  lineBrush.includes(seg.segment) ? 2.6 : 1.8
-                                }
-                                strokeLinecap="round"
-                                pointerEvents="none"
-                              />
-                              <line
-                                x1={seg.x1}
-                                y1={seg.y1}
-                                x2={seg.x2}
-                                y2={seg.y2}
-                                stroke="transparent"
-                                strokeWidth={5}
-                                strokeLinecap="round"
-                                role="button"
-                                tabIndex={0}
-                                aria-pressed={lineBrush.includes(seg.segment)}
-                                aria-label={seg.label}
-                                onClick={() => toggleGlyphSegment(seg.segment)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    toggleGlyphSegment(seg.segment);
-                                  }
+                            <RadioGroupItem
+                              id={`paint-${t.id}`}
+                              value={t.id}
+                              aria-label={`${symbols[i]} · DMC ${t.id} · ${t.name}`}
+                              className="paint-color-radio"
+                              style={{ background: t.hex, color: ink(t.hex) }}
+                            />
+                          </label>
+                        </Tip>
+                      ))}
+                    </RadioGroup>
+                    <Popover>
+                      <Tip label="ほかの糸色を追加">
+                        <PopoverTrigger aria-label="ほかの糸色を追加">
+                          <Plus size={17} />
+                        </PopoverTrigger>
+                      </Tip>
+                      <PopoverContent align="start">
+                        <div className="extra-palette">
+                          {threads
+                            .filter((t) => !palette.includes(t))
+                            .map((t) => (
+                              <button
+                                key={t.id}
+                                title={`DMC ${t.id} ${t.name}`}
+                                aria-label={`DMC ${t.id} ${t.name}で描く`}
+                                style={{ background: t.hex, color: ink(t.hex) }}
+                                onClick={() => {
+                                  setPaint(t.id);
+                                  setView('pattern');
                                 }}
                               >
-                                <title>{seg.label}</title>
-                              </line>
-                            </g>
-                          ))}
-                        </svg>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <button
-                    type="button"
-                    className={selecting ? 'active' : ''}
-                    aria-pressed={selecting}
-                    aria-label="範囲選択"
-                    title="範囲選択 · ドラッグで範囲を選び、選択範囲をドラッグして移動"
-                    onClick={() => {
-                      const next = !selecting;
-                      setSelecting(next);
-                      setSelection(null);
-                      if (next) {
-                        setPaint(undefined);
-                        setMeasuring(false);
-                        setMeasure(null);
-                        setMessage(
-                          'ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。',
-                        );
-                      }
-                      setView('pattern');
-                    }}
-                  >
-                    <BoxSelect size={17} />
-                  </button>
-                  <button
-                    type="button"
-                    className={measuring ? 'active' : ''}
-                    aria-pressed={measuring}
-                    aria-label="メジャー"
-                    title="メジャー · ドラッグして目数を測る"
-                    onClick={() => {
-                      const next = !measuring;
-                      setMeasuring(next);
-                      setMeasure(null);
-                      if (next) {
-                        setPaint(undefined);
-                        setSelecting(false);
-                        setSelection(null);
-                        setMessage(
-                          'ドラッグした範囲の目数が表示されます。もう一度押すと終了します。',
-                        );
-                      }
-                      setView('pattern');
-                    }}
-                  >
-                    <Ruler size={17} />
-                  </button>
-                  <button
-                    aria-label="一つ戻す"
-                    disabled={!history.length}
-                    onClick={() => {
-                      setPattern(history[history.length - 1]);
-                      setHistory((h) => h.slice(0, -1));
-                      setFuture((f) => [...f, pattern]);
-                    }}
-                  >
-                    <Undo2 size={17} />
-                  </button>
-                  <button
-                    aria-label="やり直す"
-                    disabled={!future.length}
-                    onClick={() => {
-                      setPattern(future[future.length - 1]);
-                      setFuture((f) => f.slice(0, -1));
-                      setHistory((h) => [...h.slice(-19), pattern]);
-                    }}
-                  >
-                    <Redo2 size={17} />
-                  </button>
-                  <Popover>
-                    <PopoverTrigger aria-label="その他の操作">
-                      <Ellipsis size={17} />
-                    </PopoverTrigger>
-                    <PopoverContent align="end">
-                      <section
-                        className="merge-colors"
-                        aria-labelledby="merge-title"
+                                {t.id}
+                              </button>
+                            ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Tip label="消しゴム · ドラッグして目を消す">
+                      <button
+                        type="button"
+                        className={paint === null ? 'active' : ''}
+                        aria-pressed={paint === null}
+                        aria-label="消しゴム"
+                        onClick={() => {
+                          setPaint(paint === null ? undefined : null);
+                          setView('pattern');
+                        }}
                       >
-                        <h3 id="merge-title">似た色をまとめる</h3>
-                        <label htmlFor="merge-from">置き換える色</label>
-                        <NativeSelect
-                          id="merge-from"
-                          value={mergeSource?.id || ''}
-                          disabled={palette.length < 2}
-                          onChange={(e) => {
-                            setMergeFrom(e.target.value);
-                            setView('pattern');
+                        <Eraser size={17} />
+                      </button>
+                    </Tip>
+                    <Popover open={brushOpen} onOpenChange={setBrushOpen}>
+                      <Tip label="塗る形を選ぶ">
+                        <PopoverTrigger
+                          className="brush-trigger"
+                          aria-label="塗る形を選ぶ"
+                        >
+                          {brushMode === 'lines' ? (
+                            <svg viewBox="0 0 22 22" aria-hidden="true">
+                              {glyphSegments
+                                .filter((seg) =>
+                                  lineBrush.includes(seg.segment),
+                                )
+                                .map((seg) => (
+                                  <line
+                                    key={seg.segment}
+                                    x1={seg.x1}
+                                    y1={seg.y1}
+                                    x2={seg.x2}
+                                    y2={seg.y2}
+                                    stroke="#2c5a41"
+                                    strokeWidth={2.6}
+                                    strokeLinecap="round"
+                                  />
+                                ))}
+                            </svg>
+                          ) : (
+                            brushOptions.find((o) => o.style === brush)?.mark
+                          )}
+                        </PopoverTrigger>
+                      </Tip>
+                      <PopoverContent align="start" className="w-auto p-1">
+                        <div
+                          className="brush-shapes"
+                          role="group"
+                          aria-label="塗る形"
+                        >
+                          {brushOptions.map((option) => (
+                            <button
+                              key={option.mark}
+                              type="button"
+                              className={
+                                brushMode === 'fill' && brush === option.style
+                                  ? 'active'
+                                  : ''
+                              }
+                              aria-pressed={
+                                brushMode === 'fill' && brush === option.style
+                              }
+                              aria-label={`${option.label}で塗る`}
+                              title={`${option.label}で塗る`}
+                              onClick={() => {
+                                setBrushMode('fill');
+                                setBrush(option.style);
+                                setView('pattern');
+                                setBrushOpen(false);
+                              }}
+                            >
+                              {option.mark}
+                            </button>
+                          ))}
+                          <svg
+                            className={
+                              'line-brush ' +
+                              (brushMode === 'lines' ? 'active' : '')
+                            }
+                            viewBox="0 0 22 22"
+                            role="group"
+                            aria-label="罫線で塗る · 入れる線をクリックで選択"
+                          >
+                            <title>罫線で塗る · 入れる線をクリックで選択</title>
+                            {glyphSegments.map((seg) => (
+                              <g key={seg.segment}>
+                                <line
+                                  x1={seg.x1}
+                                  y1={seg.y1}
+                                  x2={seg.x2}
+                                  y2={seg.y2}
+                                  stroke={
+                                    lineBrush.includes(seg.segment)
+                                      ? '#2c5a41'
+                                      : '#c9d3c5'
+                                  }
+                                  strokeWidth={
+                                    lineBrush.includes(seg.segment) ? 2.6 : 1.8
+                                  }
+                                  strokeLinecap="round"
+                                  pointerEvents="none"
+                                />
+                                <line
+                                  x1={seg.x1}
+                                  y1={seg.y1}
+                                  x2={seg.x2}
+                                  y2={seg.y2}
+                                  stroke="transparent"
+                                  strokeWidth={5}
+                                  strokeLinecap="round"
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-pressed={lineBrush.includes(seg.segment)}
+                                  aria-label={seg.label}
+                                  onClick={() =>
+                                    toggleGlyphSegment(seg.segment)
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      toggleGlyphSegment(seg.segment);
+                                    }
+                                  }}
+                                >
+                                  <title>{seg.label}</title>
+                                </line>
+                              </g>
+                            ))}
+                          </svg>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Tip label="範囲選択 · ドラッグで選び、中をドラッグして移動">
+                      <button
+                        type="button"
+                        className={selecting ? 'active' : ''}
+                        aria-pressed={selecting}
+                        aria-label="範囲選択"
+                        onClick={() => {
+                          const next = !selecting;
+                          setSelecting(next);
+                          setSelection(null);
+                          if (next) {
                             setPaint(undefined);
-                          }}
+                            setMeasuring(false);
+                            setMeasure(null);
+                            setMessage(
+                              'ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。',
+                            );
+                          }
+                          setView('pattern');
+                        }}
+                      >
+                        <BoxSelect size={17} />
+                      </button>
+                    </Tip>
+                    <Tip label="メジャー · ドラッグして目数を測る">
+                      <button
+                        type="button"
+                        className={measuring ? 'active' : ''}
+                        aria-pressed={measuring}
+                        aria-label="メジャー"
+                        onClick={() => {
+                          const next = !measuring;
+                          setMeasuring(next);
+                          setMeasure(null);
+                          if (next) {
+                            setPaint(undefined);
+                            setSelecting(false);
+                            setSelection(null);
+                            setMessage(
+                              'ドラッグした範囲の目数が表示されます。もう一度押すと終了します。',
+                            );
+                          }
+                          setView('pattern');
+                        }}
+                      >
+                        <Ruler size={17} />
+                      </button>
+                    </Tip>
+                    <Tip label="一つ戻す" wrap>
+                      <button
+                        aria-label="一つ戻す"
+                        disabled={!history.length}
+                        onClick={() => {
+                          setPattern(history[history.length - 1]);
+                          setHistory((h) => h.slice(0, -1));
+                          setFuture((f) => [...f, pattern]);
+                        }}
+                      >
+                        <Undo2 size={17} />
+                      </button>
+                    </Tip>
+                    <Tip label="やり直す" wrap>
+                      <button
+                        aria-label="やり直す"
+                        disabled={!future.length}
+                        onClick={() => {
+                          setPattern(future[future.length - 1]);
+                          setFuture((f) => f.slice(0, -1));
+                          setHistory((h) => [...h.slice(-19), pattern]);
+                        }}
+                      >
+                        <Redo2 size={17} />
+                      </button>
+                    </Tip>
+                    <Popover>
+                      <Tip label="その他の操作">
+                        <PopoverTrigger aria-label="その他の操作">
+                          <Ellipsis size={17} />
+                        </PopoverTrigger>
+                      </Tip>
+                      <PopoverContent align="end">
+                        <section
+                          className="merge-colors"
+                          aria-labelledby="merge-title"
                         >
-                          <NativeSelectOption value="">
-                            色を選ぶ
-                          </NativeSelectOption>
-                          {palette.map((t, i) => (
-                            <NativeSelectOption key={t.id} value={t.id}>
-                              {symbols[i]} · DMC {t.id} ·{' '}
-                              {pattern.cells.filter((c) => c === t.id).length}目
+                          <h3 id="merge-title">似た色をまとめる</h3>
+                          <label htmlFor="merge-from">置き換える色</label>
+                          <NativeSelect
+                            id="merge-from"
+                            value={mergeSource?.id || ''}
+                            disabled={palette.length < 2}
+                            onChange={(e) => {
+                              setMergeFrom(e.target.value);
+                              setView('pattern');
+                              setPaint(undefined);
+                            }}
+                          >
+                            <NativeSelectOption value="">
+                              色を選ぶ
                             </NativeSelectOption>
-                          ))}
-                        </NativeSelect>
-                        <label htmlFor="merge-to">残す色</label>
-                        <NativeSelect
-                          id="merge-to"
-                          value={mergeTarget?.id || ''}
-                          disabled={palette.length < 2}
-                          onChange={(e) => setMergeTo(e.target.value)}
-                        >
-                          <NativeSelectOption value="">
-                            色を選ぶ
-                          </NativeSelectOption>
-                          {palette.map((t, i) => (
-                            <NativeSelectOption
-                              key={t.id}
-                              value={t.id}
-                              disabled={t.id === mergeSource?.id}
-                            >
-                              {symbols[i]} · DMC {t.id} · {t.name}
+                            {palette.map((t, i) => (
+                              <NativeSelectOption key={t.id} value={t.id}>
+                                {symbols[i]} · DMC {t.id} ·{' '}
+                                {pattern.cells.filter((c) => c === t.id).length}
+                                目
+                              </NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                          <label htmlFor="merge-to">残す色</label>
+                          <NativeSelect
+                            id="merge-to"
+                            value={mergeTarget?.id || ''}
+                            disabled={palette.length < 2}
+                            onChange={(e) => setMergeTo(e.target.value)}
+                          >
+                            <NativeSelectOption value="">
+                              色を選ぶ
                             </NativeSelectOption>
-                          ))}
-                        </NativeSelect>
-                        {canMerge && (
-                          <div className="merge-preview">
-                            <span
-                              style={{
-                                background: mergeSource!.hex,
-                                color: ink(mergeSource!.hex),
-                              }}
-                            >
-                              {symbols[palette.indexOf(mergeSource!)]}
-                            </span>
-                            <ArrowRight size={16} />
-                            <span
-                              style={{
-                                background: mergeTarget!.hex,
-                                color: ink(mergeTarget!.hex),
-                              }}
-                            >
-                              {symbols[palette.indexOf(mergeTarget!)]}
-                            </span>
-                            <strong>{mergeCount}目</strong>
-                          </div>
-                        )}
-                        <button
-                          className="primary full"
-                          disabled={!canMerge}
-                          onClick={mergeColors}
-                        >
-                          {canMerge
-                            ? `${mergeCount}目をまとめる`
-                            : '色を選んでまとめる'}
-                        </button>
-                      </section>
-                    </PopoverContent>
-                  </Popover>
+                            {palette.map((t, i) => (
+                              <NativeSelectOption
+                                key={t.id}
+                                value={t.id}
+                                disabled={t.id === mergeSource?.id}
+                              >
+                                {symbols[i]} · DMC {t.id} · {t.name}
+                              </NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                          {canMerge && (
+                            <div className="merge-preview">
+                              <span
+                                style={{
+                                  background: mergeSource!.hex,
+                                  color: ink(mergeSource!.hex),
+                                }}
+                              >
+                                {symbols[palette.indexOf(mergeSource!)]}
+                              </span>
+                              <ArrowRight size={16} />
+                              <span
+                                style={{
+                                  background: mergeTarget!.hex,
+                                  color: ink(mergeTarget!.hex),
+                                }}
+                              >
+                                {symbols[palette.indexOf(mergeTarget!)]}
+                              </span>
+                              <strong>{mergeCount}目</strong>
+                            </div>
+                          )}
+                          <button
+                            className="primary full"
+                            disabled={!canMerge}
+                            onClick={mergeColors}
+                          >
+                            {canMerge
+                              ? `${mergeCount}目をまとめる`
+                              : '色を選んでまとめる'}
+                          </button>
+                        </section>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="zoom-tools">
+                    <Tip label="縮小" wrap>
+                      <button
+                        aria-label="縮小"
+                        disabled={zoom <= 0.6}
+                        onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
+                      >
+                        <ZoomOut size={17} />
+                      </button>
+                    </Tip>
+                    <span>{Math.round(zoom * 100)}%</span>
+                    <Tip label="拡大" wrap>
+                      <button
+                        aria-label="拡大"
+                        disabled={zoom >= 3}
+                        onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                      >
+                        <ZoomIn size={17} />
+                      </button>
+                    </Tip>
+                    <Tip label="記号の表示を切り替え">
+                      <button
+                        className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
+                        aria-pressed={showSymbols}
+                        onClick={() => setShowSymbols(!showSymbols)}
+                      >
+                        A 記号
+                      </button>
+                    </Tip>
+                  </div>
                 </div>
-                <div className="zoom-tools">
-                  <button
-                    aria-label="縮小"
-                    disabled={zoom <= 0.6}
-                    onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
-                  >
-                    <ZoomOut size={17} />
-                  </button>
-                  <span>{Math.round(zoom * 100)}%</span>
-                  <button
-                    aria-label="拡大"
-                    disabled={zoom >= 3}
-                    onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-                  >
-                    <ZoomIn size={17} />
-                  </button>
-                  <button
-                    className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
-                    aria-pressed={showSymbols}
-                    onClick={() => setShowSymbols(!showSymbols)}
-                  >
-                    A 記号
-                  </button>
-                </div>
-              </div>
+              </TooltipProvider>
               <div className="board-scroll">
                 <div
                   className="board-wrap"
@@ -1771,6 +1804,25 @@ export default function Home() {
   );
 }
 
+function Tip({
+  label,
+  wrap,
+  children,
+}: {
+  label: string;
+  // Disabled buttons swallow hover, so a wrapper keeps their tooltip alive.
+  wrap?: boolean;
+  children: ReactElement;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={wrap ? <div className="tip-wrap">{children}</div> : children}
+      />
+      <TooltipContent className="tip">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 function PatternPreview({ pattern }: { pattern: Pattern }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const count = 14;
