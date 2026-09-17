@@ -22,6 +22,7 @@ import {
   ZoomIn,
   ZoomOut,
   Undo2,
+  Redo2,
   Eraser,
   BoxSelect,
   Ruler,
@@ -87,6 +88,7 @@ export default function Home() {
   const [mergeFrom, setMergeFrom] = useState('');
   const [mergeTo, setMergeTo] = useState('');
   const [history, setHistory] = useState<Pattern[]>([]);
+  const [future, setFuture] = useState<Pattern[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -238,8 +240,12 @@ export default function Home() {
       typeof p.name === 'string'
     );
   }
+  function remember(p: Pattern) {
+    setHistory((h) => [...h.slice(-19), p]);
+    setFuture([]);
+  }
   function update(p: Pattern) {
-    setHistory((h) => [...h.slice(-19), pattern]);
+    remember(pattern);
     setPattern(p);
   }
   function imagePattern(
@@ -444,7 +450,7 @@ export default function Home() {
     if (e.type === 'pointerup') paintStroke(e);
     stroke.current = null;
     if (active.changed) {
-      setHistory((h) => [...h.slice(-19), active.original]);
+      remember(active.original);
       setPattern({
         ...active.original,
         cells: active.cells,
@@ -553,7 +559,7 @@ export default function Home() {
           ? moveRegion(active.original, active.region, ...active.offset)
           : active.original;
       if (next !== active.original) {
-        setHistory((h) => [...h.slice(-19), active.original]);
+        remember(active.original);
         setPattern(next);
         setMessage('選択範囲を移動しました。「一つ戻す」で取り消せます。');
       } else {
@@ -1321,9 +1327,21 @@ export default function Home() {
                     onClick={() => {
                       setPattern(history[history.length - 1]);
                       setHistory((h) => h.slice(0, -1));
+                      setFuture((f) => [...f, pattern]);
                     }}
                   >
                     <Undo2 size={17} />
+                  </button>
+                  <button
+                    aria-label="やり直す"
+                    disabled={!future.length}
+                    onClick={() => {
+                      setPattern(future[future.length - 1]);
+                      setFuture((f) => f.slice(0, -1));
+                      setHistory((h) => [...h.slice(-19), pattern]);
+                    }}
+                  >
+                    <Redo2 size={17} />
                   </button>
                   <Popover>
                     <PopoverTrigger aria-label="その他の操作">
