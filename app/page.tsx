@@ -893,7 +893,7 @@ export default function Home() {
                 今の図案をこのサイズに変更
               </button>
               <button
-                className="outline full"
+                className="outline full double-button"
                 type="button"
                 disabled={busy || pattern.width > 60 || pattern.height > 60}
                 title={
@@ -1488,34 +1488,31 @@ export default function Home() {
                     </Popover>
                   </div>
                   <div className="zoom-tools">
-                    <Tip label="縮小" wrap>
-                      <button
-                        aria-label="縮小"
-                        disabled={zoom <= 0.6}
-                        onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
-                      >
-                        <ZoomOut size={17} />
-                      </button>
-                    </Tip>
+                    <button
+                      aria-label="縮小"
+                      disabled={zoom <= 0.6}
+                      onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
+                    >
+                      <ZoomOut size={17} />
+                    </button>
+
                     <span>{Math.round(zoom * 100)}%</span>
-                    <Tip label="拡大" wrap>
-                      <button
-                        aria-label="拡大"
-                        disabled={zoom >= 3}
-                        onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
-                      >
-                        <ZoomIn size={17} />
-                      </button>
-                    </Tip>
-                    <Tip label="記号の表示を切り替え">
-                      <button
-                        className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
-                        aria-pressed={showSymbols}
-                        onClick={() => setShowSymbols(!showSymbols)}
-                      >
-                        A 記号
-                      </button>
-                    </Tip>
+
+                    <button
+                      aria-label="拡大"
+                      disabled={zoom >= 3}
+                      onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                    >
+                      <ZoomIn size={17} />
+                    </button>
+
+                    <button
+                      className={'symbol-toggle ' + (showSymbols ? 'on' : '')}
+                      aria-pressed={showSymbols}
+                      onClick={() => setShowSymbols(!showSymbols)}
+                    >
+                      A 記号
+                    </button>
                   </div>
                 </div>
               </TooltipProvider>

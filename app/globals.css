@@ -566,8 +566,6 @@ h1 {
 }
 .freehand-controls {
   margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #dce3dc;
 }
 .freehand-controls button + button {
   margin-top: 10px;
@@ -1783,4 +1781,8 @@ summary,
 [data-slot='tooltip-content'].tip > :last-child {
   background: #111;
   color: #fff;
+}
+
+.freehand-controls .double-button {
+  margin-top: 32px;
 }
