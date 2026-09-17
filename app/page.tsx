@@ -1152,7 +1152,6 @@ export default function Home() {
                           className="paint-color-radio"
                           style={{ background: t.hex, color: ink(t.hex) }}
                         />
-                        <span>{t.name}</span>
                       </label>
                     ))}
                   </RadioGroup>
