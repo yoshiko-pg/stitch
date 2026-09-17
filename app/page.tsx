@@ -114,6 +114,7 @@ export default function Home() {
   const [brush, setBrush] = useState<CellStyle | null>(null);
   const [lineBrush, setLineBrush] = useState('');
   const [brushMode, setBrushMode] = useState<'fill' | 'lines'>('fill');
+  const [brushOpen, setBrushOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
   const [measuring, setMeasuring] = useState(false);
@@ -1193,87 +1194,119 @@ export default function Home() {
                   >
                     <Eraser size={17} />
                   </button>
-                  <div
-                    className="brush-shapes"
-                    role="group"
-                    aria-label="塗る形"
-                  >
-                    {brushOptions.map((option) => (
-                      <button
-                        key={option.mark}
-                        type="button"
-                        className={
-                          brushMode === 'fill' && brush === option.style
-                            ? 'active'
-                            : ''
-                        }
-                        aria-pressed={
-                          brushMode === 'fill' && brush === option.style
-                        }
-                        aria-label={`${option.label}で塗る`}
-                        title={`${option.label}で塗る`}
-                        onClick={() => {
-                          setBrushMode('fill');
-                          setBrush(option.style);
-                          setView('pattern');
-                        }}
-                      >
-                        {option.mark}
-                      </button>
-                    ))}
-                    <svg
-                      className={
-                        'line-brush ' + (brushMode === 'lines' ? 'active' : '')
-                      }
-                      viewBox="0 0 22 22"
-                      role="group"
-                      aria-label="罫線で塗る · 入れる線をクリックで選択"
+                  <Popover open={brushOpen} onOpenChange={setBrushOpen}>
+                    <PopoverTrigger
+                      className="brush-trigger"
+                      aria-label="塗る形を選ぶ"
+                      title="塗る形を選ぶ"
                     >
-                      <title>罫線で塗る · 入れる線をクリックで選択</title>
-                      {glyphSegments.map((seg) => (
-                        <g key={seg.segment}>
-                          <line
-                            x1={seg.x1}
-                            y1={seg.y1}
-                            x2={seg.x2}
-                            y2={seg.y2}
-                            stroke={
-                              lineBrush.includes(seg.segment)
-                                ? '#2c5a41'
-                                : '#c9d3c5'
+                      {brushMode === 'lines' ? (
+                        <svg viewBox="0 0 22 22" aria-hidden="true">
+                          {glyphSegments
+                            .filter((seg) => lineBrush.includes(seg.segment))
+                            .map((seg) => (
+                              <line
+                                key={seg.segment}
+                                x1={seg.x1}
+                                y1={seg.y1}
+                                x2={seg.x2}
+                                y2={seg.y2}
+                                stroke="#2c5a41"
+                                strokeWidth={2.6}
+                                strokeLinecap="round"
+                              />
+                            ))}
+                        </svg>
+                      ) : (
+                        brushOptions.find((o) => o.style === brush)?.mark
+                      )}
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-auto p-1">
+                      <div
+                        className="brush-shapes"
+                        role="group"
+                        aria-label="塗る形"
+                      >
+                        {brushOptions.map((option) => (
+                          <button
+                            key={option.mark}
+                            type="button"
+                            className={
+                              brushMode === 'fill' && brush === option.style
+                                ? 'active'
+                                : ''
                             }
-                            strokeWidth={
-                              lineBrush.includes(seg.segment) ? 2.6 : 1.8
+                            aria-pressed={
+                              brushMode === 'fill' && brush === option.style
                             }
-                            strokeLinecap="round"
-                            pointerEvents="none"
-                          />
-                          <line
-                            x1={seg.x1}
-                            y1={seg.y1}
-                            x2={seg.x2}
-                            y2={seg.y2}
-                            stroke="transparent"
-                            strokeWidth={5}
-                            strokeLinecap="round"
-                            role="button"
-                            tabIndex={0}
-                            aria-pressed={lineBrush.includes(seg.segment)}
-                            aria-label={seg.label}
-                            onClick={() => toggleGlyphSegment(seg.segment)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                toggleGlyphSegment(seg.segment);
-                              }
+                            aria-label={`${option.label}で塗る`}
+                            title={`${option.label}で塗る`}
+                            onClick={() => {
+                              setBrushMode('fill');
+                              setBrush(option.style);
+                              setView('pattern');
+                              setBrushOpen(false);
                             }}
                           >
-                            <title>{seg.label}</title>
-                          </line>
-                        </g>
-                      ))}
-                    </svg>
-                  </div>
+                            {option.mark}
+                          </button>
+                        ))}
+                        <svg
+                          className={
+                            'line-brush ' +
+                            (brushMode === 'lines' ? 'active' : '')
+                          }
+                          viewBox="0 0 22 22"
+                          role="group"
+                          aria-label="罫線で塗る · 入れる線をクリックで選択"
+                        >
+                          <title>罫線で塗る · 入れる線をクリックで選択</title>
+                          {glyphSegments.map((seg) => (
+                            <g key={seg.segment}>
+                              <line
+                                x1={seg.x1}
+                                y1={seg.y1}
+                                x2={seg.x2}
+                                y2={seg.y2}
+                                stroke={
+                                  lineBrush.includes(seg.segment)
+                                    ? '#2c5a41'
+                                    : '#c9d3c5'
+                                }
+                                strokeWidth={
+                                  lineBrush.includes(seg.segment) ? 2.6 : 1.8
+                                }
+                                strokeLinecap="round"
+                                pointerEvents="none"
+                              />
+                              <line
+                                x1={seg.x1}
+                                y1={seg.y1}
+                                x2={seg.x2}
+                                y2={seg.y2}
+                                stroke="transparent"
+                                strokeWidth={5}
+                                strokeLinecap="round"
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={lineBrush.includes(seg.segment)}
+                                aria-label={seg.label}
+                                onClick={() => toggleGlyphSegment(seg.segment)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleGlyphSegment(seg.segment);
+                                  }
+                                }}
+                              >
+                                <title>{seg.label}</title>
+                              </line>
+                            </g>
+                          ))}
+                        </svg>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <button
                     type="button"
                     className={selecting ? 'active' : ''}
