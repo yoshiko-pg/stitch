@@ -49,6 +49,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import { SavedWorks } from '@/components/saved-works';
 import {
   threads,
   threadsByColor,
@@ -896,6 +897,22 @@ export default function Home() {
                 余白を詰める
               </button>
             </form>
+          )}
+          {tool === 'draw' && (
+            <SavedWorks
+              pattern={pattern}
+              valid={valid}
+              onMessage={setMessage}
+              onLoad={(next, name) => {
+                update(next);
+                source.current = null;
+                setSourceName('');
+                setView('pattern');
+                setMessage(
+                  `「${name}」を開きました。「一つ戻す」で前の図案に戻せます。`,
+                );
+              }}
+            />
           )}
           {tool === 'text' && (
             <DotTextTool

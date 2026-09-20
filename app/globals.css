@@ -583,6 +583,75 @@ h1 {
   line-height: 1.7;
   margin: 8px 0;
 }
+.saved-works {
+  border-top: 1px solid #d9e0d2;
+  padding-top: 16px;
+  margin-bottom: 20px;
+}
+.saved-works h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.saved-works p {
+  font-size: 12px;
+  color: #64785e;
+  margin: 8px 0;
+}
+.saved-works form {
+  display: flex;
+  gap: 6px;
+}
+.saved-works form input {
+  flex: 1;
+  min-width: 0;
+}
+.saved-works form button {
+  flex: none;
+  padding: 0 12px;
+}
+.saved-works ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.saved-works li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.saved-work-open {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 6px;
+}
+.saved-work-open:hover {
+  background: #e8eee2;
+}
+.saved-work-open span {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-work-open small {
+  font-size: 11px;
+  color: #64785e;
+}
+.saved-work-delete {
+  flex: none;
+  padding: 6px;
+  border-radius: 6px;
+  color: #8a5a50;
+}
+.saved-work-delete:hover {
+  background: #f3e3df;
+}
 .canvas-size-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
