@@ -121,6 +121,12 @@ export function SavedWorks({
           aria-label="保存する名前"
           placeholder="名前を付けて保存"
           maxLength={40}
+          // Keep password managers from offering to fill this field.
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
+          data-form-type="other"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
