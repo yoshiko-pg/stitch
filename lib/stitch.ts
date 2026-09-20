@@ -802,6 +802,20 @@ function lab(c: number[]) {
   return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
 }
 const labs = threads.map((t) => lab(rgb(t.hex)));
+// Swatch order for pickers: whites, blacks and greys first, then hue families
+// from pink round the wheel to purple, each running light to dark.
+const colorRank = ([l, a, b]: number[]) => {
+  if (Math.hypot(a, b) < 10) return [0, l >= 88 ? 0 : l < 30 ? 1 : 2, -l];
+  const hue = ((Math.atan2(b, a) * 180) / Math.PI + 380) % 360;
+  return [1, Math.floor(hue / 30), -l];
+};
+export const threadsByColor: Thread[] = threads
+  .map((t, i) => ({ t, rank: colorRank(labs[i]) }))
+  .sort(
+    (x, y) =>
+      x.rank[0] - y.rank[0] || x.rank[1] - y.rank[1] || x.rank[2] - y.rank[2],
+  )
+  .map(({ t }) => t);
 const dist = (a: number[], b: number[]) =>
   a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0);
 export function quantize(

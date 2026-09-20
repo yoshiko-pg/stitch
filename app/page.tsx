@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/native-select';
 import {
   threads,
+  threadsByColor,
   sample,
   quantize,
   trimPattern,
@@ -1176,7 +1177,7 @@ export default function Home() {
                         className="w-[min(26rem,calc(100vw-1rem))]"
                       >
                         <div className="extra-palette">
-                          {threads
+                          {threadsByColor
                             .filter((t) => !palette.includes(t))
                             .map((t) => (
                               <button
