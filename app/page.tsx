@@ -1171,7 +1171,10 @@ export default function Home() {
                           <Plus size={17} />
                         </PopoverTrigger>
                       </Tip>
-                      <PopoverContent align="start">
+                      <PopoverContent
+                        align="start"
+                        className="w-[min(26rem,calc(100vw-1rem))]"
+                      >
                         <div className="extra-palette">
                           {threads
                             .filter((t) => !palette.includes(t))
