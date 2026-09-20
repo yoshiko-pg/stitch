@@ -462,6 +462,24 @@ export function moveRegion(
     return p;
   return { ...p, cells, ...(styles && { styles }), ...(lines && { lines }) };
 }
+/** Paint every cell in the region as a full square; a null colour empties it, backstitch included. */
+export function fillRegion(
+  p: Pattern,
+  region: Region,
+  color: string | null,
+): Pattern {
+  const cells = [...p.cells];
+  const styles = p.styles && [...p.styles];
+  const lines = p.lines && [...p.lines];
+  for (let y = region.y; y < region.y + region.height; y++)
+    for (let x = region.x; x < region.x + region.width; x++) {
+      const cell = y * p.width + x;
+      cells[cell] = color;
+      if (styles) styles[cell] = null;
+      if (lines && color === null) lines[cell] = null;
+    }
+  return { ...p, cells, ...(styles && { styles }), ...(lines && { lines }) };
+}
 /** Change the canvas size, keeping stitches anchored top-left; overflow is cropped. */
 export function resizePattern(
   p: Pattern,

@@ -26,7 +26,6 @@ import {
   Redo2,
   Eraser,
   BoxSelect,
-  Ruler,
   Plus,
   Ellipsis,
   Save,
@@ -57,6 +56,7 @@ import {
   quantize,
   trimPattern,
   moveRegion,
+  fillRegion,
   resizePattern,
   doublePattern,
   cellStyle,
@@ -125,12 +125,6 @@ export default function Home() {
   const [brushOpen, setBrushOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
-  const [measuring, setMeasuring] = useState(false);
-  const [measure, setMeasure] = useState<Region | null>(null);
-  const measureDrag = useRef<{
-    pointerId: number;
-    anchor: [number, number];
-  } | null>(null);
   const selectDrag = useRef<
     | { pointerId: number; kind: 'draw'; anchor: [number, number] }
     | {
@@ -148,13 +142,10 @@ export default function Home() {
     if (paint !== undefined) {
       setSelecting(false);
       setSelection(null);
-      setMeasuring(false);
-      setMeasure(null);
     }
   }, [paint]);
   useEffect(() => {
     setSelection(null);
-    setMeasure(null);
   }, [pattern.width, pattern.height]);
   // Keep the size fields prefilled with the current canvas size.
   useEffect(() => {
@@ -484,6 +475,18 @@ export default function Home() {
       Math.max(0, Math.min(pattern.height - 1, Math.floor(point.y))),
     ];
   }
+  // With a region selected, picking a colour or the eraser fills it instead of switching tools.
+  function fillSelection(color: string | null) {
+    if (!selecting || !selection) return false;
+    remember(pattern);
+    setPattern(fillRegion(pattern, selection, color));
+    setMessage(
+      color === null
+        ? '選択範囲を消しました。「一つ戻す」で取り消せます。'
+        : `選択範囲を DMC ${color} で塗りつぶしました。「一つ戻す」で取り消せます。`,
+    );
+    return true;
+  }
   function beginSelect(e: ReactPointerEvent<SVGSVGElement>) {
     if (
       view !== 'pattern' ||
@@ -575,44 +578,6 @@ export default function Home() {
         setSelection(active.region);
       }
     }
-    if (e.currentTarget.hasPointerCapture(e.pointerId))
-      e.currentTarget.releasePointerCapture(e.pointerId);
-  }
-  function beginMeasure(e: ReactPointerEvent<SVGSVGElement>) {
-    if (
-      view !== 'pattern' ||
-      !measuring ||
-      e.button !== 0 ||
-      !e.isPrimary ||
-      measureDrag.current ||
-      !pointerCell(e)
-    )
-      return;
-    const cell = pointerCellClamped(e);
-    if (!cell) return;
-    e.preventDefault();
-    measureDrag.current = { pointerId: e.pointerId, anchor: cell };
-    setMeasure({ x: cell[0], y: cell[1], width: 1, height: 1 });
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function moveMeasure(e: ReactPointerEvent<SVGSVGElement>) {
-    const active = measureDrag.current;
-    if (!active || active.pointerId !== e.pointerId) return;
-    const cell = pointerCellClamped(e);
-    if (!cell) return;
-    const [ax, ay] = active.anchor;
-    setMeasure({
-      x: Math.min(ax, cell[0]),
-      y: Math.min(ay, cell[1]),
-      width: Math.abs(cell[0] - ax) + 1,
-      height: Math.abs(cell[1] - ay) + 1,
-    });
-  }
-  function endMeasure(e: ReactPointerEvent<SVGSVGElement>) {
-    const active = measureDrag.current;
-    if (!active || active.pointerId !== e.pointerId) return;
-    if (e.type === 'pointerup') moveMeasure(e);
-    measureDrag.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
@@ -1144,7 +1109,8 @@ export default function Home() {
                       aria-label="塗る色"
                       value={paint || ''}
                       onValueChange={(value) => {
-                        setPaint(String(value));
+                        if (!fillSelection(String(value)))
+                          setPaint(String(value));
                         setView('pattern');
                       }}
                     >
@@ -1186,7 +1152,7 @@ export default function Home() {
                                 aria-label={`DMC ${t.id} ${t.name}で描く`}
                                 style={{ background: t.hex, color: ink(t.hex) }}
                                 onClick={() => {
-                                  setPaint(t.id);
+                                  if (!fillSelection(t.id)) setPaint(t.id);
                                   setView('pattern');
                                 }}
                               >
@@ -1203,6 +1169,7 @@ export default function Home() {
                         aria-pressed={paint === null}
                         aria-label="消しゴム"
                         onClick={() => {
+                          if (fillSelection(null)) return;
                           setPaint(paint === null ? undefined : null);
                           setView('pattern');
                         }}
@@ -1328,7 +1295,7 @@ export default function Home() {
                         </div>
                       </PopoverContent>
                     </Popover>
-                    <Tip label="範囲選択 · ドラッグで選び、中をドラッグして移動">
+                    <Tip label="範囲選択 · 目数を測る・色を押して塗りつぶし・中をドラッグして移動">
                       <button
                         type="button"
                         className={selecting ? 'active' : ''}
@@ -1340,40 +1307,14 @@ export default function Home() {
                           setSelection(null);
                           if (next) {
                             setPaint(undefined);
-                            setMeasuring(false);
-                            setMeasure(null);
                             setMessage(
-                              'ドラッグで範囲を選択し、選択範囲の中をドラッグすると移動できます。',
+                              'ドラッグで範囲を選ぶと目数が出ます。色か消しゴムを押すと塗りつぶし、中をドラッグすると移動できます。',
                             );
                           }
                           setView('pattern');
                         }}
                       >
                         <BoxSelect size={17} />
-                      </button>
-                    </Tip>
-                    <Tip label="メジャー · ドラッグして目数を測る">
-                      <button
-                        type="button"
-                        className={measuring ? 'active' : ''}
-                        aria-pressed={measuring}
-                        aria-label="メジャー"
-                        onClick={() => {
-                          const next = !measuring;
-                          setMeasuring(next);
-                          setMeasure(null);
-                          if (next) {
-                            setPaint(undefined);
-                            setSelecting(false);
-                            setSelection(null);
-                            setMessage(
-                              'ドラッグした範囲の目数が表示されます。もう一度押すと終了します。',
-                            );
-                          }
-                          setView('pattern');
-                        }}
-                      >
-                        <Ruler size={17} />
                       </button>
                     </Tip>
                     <Tip label="一つ戻す" wrap>
@@ -1533,52 +1474,20 @@ export default function Home() {
                 >
                   <svg
                     ref={board}
-                    onPointerDown={
-                      measuring
-                        ? beginMeasure
-                        : selecting
-                          ? beginSelect
-                          : beginStroke
-                    }
-                    onPointerMove={
-                      measuring
-                        ? moveMeasure
-                        : selecting
-                          ? moveSelect
-                          : paintStroke
-                    }
-                    onPointerUp={
-                      measuring
-                        ? endMeasure
-                        : selecting
-                          ? endSelect
-                          : finishStroke
-                    }
-                    onPointerCancel={
-                      measuring
-                        ? endMeasure
-                        : selecting
-                          ? endSelect
-                          : finishStroke
-                    }
-                    onLostPointerCapture={
-                      measuring
-                        ? endMeasure
-                        : selecting
-                          ? endSelect
-                          : finishStroke
-                    }
+                    onPointerDown={selecting ? beginSelect : beginStroke}
+                    onPointerMove={selecting ? moveSelect : paintStroke}
+                    onPointerUp={selecting ? endSelect : finishStroke}
+                    onPointerCancel={selecting ? endSelect : finishStroke}
+                    onLostPointerCapture={selecting ? endSelect : finishStroke}
                     style={{
                       touchAction:
-                        view === 'pattern' &&
-                        (canPaint || selecting || measuring)
+                        view === 'pattern' && (canPaint || selecting)
                           ? 'none'
                           : 'auto',
                     }}
                     className={
                       'pattern-grid ' +
-                      (view === 'pattern' &&
-                      (canPaint || selecting || measuring)
+                      (view === 'pattern' && (canPaint || selecting)
                         ? 'painting'
                         : '')
                     }
@@ -1750,46 +1659,33 @@ export default function Home() {
                         ) : null,
                       )}
                     {view === 'pattern' && selecting && selection && (
-                      <rect
-                        x={selection.x + 0.05}
-                        y={selection.y + 0.05}
-                        width={selection.width - 0.1}
-                        height={selection.height - 0.1}
-                        fill="#16a08514"
-                        stroke="#0d7a66"
-                        strokeWidth=".12"
-                        strokeDasharray=".34 .2"
-                        pointerEvents="none"
-                      />
-                    )}
-                    {view === 'pattern' && measuring && measure && (
                       <g pointerEvents="none">
                         <rect
-                          x={measure.x + 0.05}
-                          y={measure.y + 0.05}
-                          width={measure.width - 0.1}
-                          height={measure.height - 0.1}
-                          fill="#d38b3418"
-                          stroke="#c26d1b"
+                          x={selection.x + 0.05}
+                          y={selection.y + 0.05}
+                          width={selection.width - 0.1}
+                          height={selection.height - 0.1}
+                          fill="#16a08514"
+                          stroke="#0d7a66"
                           strokeWidth=".12"
                           strokeDasharray=".34 .2"
                         />
                         <text
-                          x={measure.x + measure.width / 2}
+                          x={selection.x + selection.width / 2}
                           y={
-                            measure.y >= 1
-                              ? measure.y - 0.35
-                              : measure.y + measure.height + 0.85
+                            selection.y >= 1
+                              ? selection.y - 0.35
+                              : selection.y + selection.height + 0.85
                           }
                           textAnchor="middle"
                           fontSize=".85"
                           fontWeight="600"
-                          fill="#a35510"
+                          fill="#0d6a59"
                           stroke="#fffefa"
                           strokeWidth=".14"
                           paintOrder="stroke"
                         >
-                          {measure.width} × {measure.height}
+                          {selection.width} × {selection.height}
                         </text>
                       </g>
                     )}
