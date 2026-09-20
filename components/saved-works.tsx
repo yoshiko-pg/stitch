@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import type { Pattern } from '@/lib/stitch';
+import { threads, type Pattern } from '@/lib/stitch';
 
 type SavedWork = {
   id: string;
@@ -37,6 +37,31 @@ const stamp = (t: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+
+const hexById = new Map(threads.map((t) => [t.id, t.hex]));
+/** One pixel per stitch, scaled up by CSS; half stitches show as full squares. */
+function Thumbnail({ pattern }: { pattern: Pattern }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, pattern.width, pattern.height);
+    pattern.cells.forEach((c, i) => {
+      if (!c) return;
+      ctx.fillStyle = hexById.get(c) || '#000';
+      ctx.fillRect(i % pattern.width, Math.floor(i / pattern.width), 1, 1);
+    });
+  }, [pattern]);
+  return (
+    <canvas
+      ref={ref}
+      className="saved-work-thumb"
+      width={pattern.width}
+      height={pattern.height}
+      aria-hidden="true"
+    />
+  );
+}
 
 /** Named snapshots of the pattern kept in localStorage, listed newest first. */
 export function SavedWorks({
@@ -118,6 +143,7 @@ export function SavedWorks({
                   setName(w.name);
                 }}
               >
+                <Thumbnail pattern={w.pattern} />
                 <span>{w.name}</span>
                 <small>
                   {w.pattern.width}×{w.pattern.height}目 · {stamp(w.savedAt)}
