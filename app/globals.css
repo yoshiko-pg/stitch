@@ -670,6 +670,19 @@ h1 {
 .saved-work-delete:hover {
   background: #f3e3df;
 }
+.saved-works-transfer {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.saved-works-transfer .outline {
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.saved-works-transfer .outline:disabled {
+  opacity: 0.5;
+}
 .canvas-size-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Download, Trash2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { threads, type Pattern } from '@/lib/stitch';
 
@@ -13,22 +13,34 @@ type SavedWork = {
 };
 const storageKey = 'ito-saved-works-v1';
 
+function validWorks(raw: unknown, valid: (p: Pattern) => boolean) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (w): w is SavedWork =>
+      w &&
+      typeof w.id === 'string' &&
+      typeof w.name === 'string' &&
+      typeof w.savedAt === 'number' &&
+      valid(w.pattern),
+  );
+}
+
 function readWorks(valid: (p: Pattern) => boolean): SavedWork[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    if (!Array.isArray(raw)) return [];
-    return raw.filter(
-      (w) =>
-        w &&
-        typeof w.id === 'string' &&
-        typeof w.name === 'string' &&
-        typeof w.savedAt === 'number' &&
-        valid(w.pattern),
+    return validWorks(
+      JSON.parse(localStorage.getItem(storageKey) || '[]'),
+      valid,
     );
   } catch {
     return [];
   }
 }
+
+const fileStamp = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+};
 
 const stamp = (t: number) =>
   new Date(t).toLocaleString('ja-JP', {
@@ -172,6 +184,68 @@ export function SavedWorks({
           ))}
         </ul>
       )}
+      <div className="saved-works-transfer">
+        <button
+          type="button"
+          className="outline"
+          disabled={works.length === 0}
+          onClick={() => {
+            const url = URL.createObjectURL(
+              new Blob([JSON.stringify({ savedWorks: works })], {
+                type: 'application/json',
+              }),
+            );
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ito-saved-works-${fileStamp()}.json`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            onMessage(`${works.length}件の作業を書き出しました。`);
+          }}
+        >
+          <Download size={14} />
+          すべて書き出す
+        </button>
+        <label className="outline import-label">
+          <Upload size={14} />
+          ファイルから読み込む
+          <input
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={async (e) => {
+              const input = e.currentTarget;
+              const f = input.files?.[0];
+              input.value = '';
+              if (!f) return;
+              try {
+                if (f.size > 50e6) throw Error();
+                const raw = JSON.parse(await f.text());
+                const imported = validWorks(raw?.savedWorks, valid);
+                if (imported.length === 0) throw Error();
+                // Imported works replace saved ones with the same name.
+                const names = new Set(imported.map((w) => w.name));
+                const merged = [
+                  ...imported,
+                  ...works.filter((w) => !names.has(w.name)),
+                ];
+                // Keep ids unique even if the file came from another device.
+                const ids = new Set<string>();
+                for (const w of merged) {
+                  if (ids.has(w.id))
+                    w.id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                  ids.add(w.id);
+                }
+                merged.sort((a, b) => b.savedAt - a.savedAt);
+                if (store(merged))
+                  onMessage(`${imported.length}件の作業を読み込みました。`);
+              } catch {
+                onMessage('このファイルは読み込めません。');
+              }
+            }}
+          />
+        </label>
+      </div>
     </section>
   );
 }
