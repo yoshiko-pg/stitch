@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Download, Trash2, Upload } from 'lucide-react';
+import { Download, Save, Trash2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { threads, type Pattern } from '@/lib/stitch';
 
@@ -89,6 +89,8 @@ export function SavedWorks({
 }) {
   const [works, setWorks] = useState(() => readWorks(valid));
   const [name, setName] = useState('');
+  // The work last opened or saved, offered for a one-click overwrite.
+  const [currentId, setCurrentId] = useState<string>();
 
   function store(next: SavedWork[]) {
     try {
@@ -102,10 +104,25 @@ export function SavedWorks({
   }
   const trimmed = name.trim();
   const existing = works.find((w) => w.name === trimmed);
+  const current = works.find((w) => w.id === currentId);
 
   return (
     <section className="saved-works" aria-label="保存した作業">
       <h3>保存した作業</h3>
+      {current && (
+        <button
+          type="button"
+          className="outline saved-works-overwrite"
+          onClick={() => {
+            const work = { ...current, savedAt: Date.now(), pattern };
+            if (store([work, ...works.filter((w) => w !== current)]))
+              onMessage(`「${current.name}」を上書き保存しました。`);
+          }}
+        >
+          <Save size={14} />
+          <span>「{current.name}」に上書き保存</span>
+        </button>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -121,6 +138,7 @@ export function SavedWorks({
           };
           if (store([work, ...works.filter((w) => w !== existing)])) {
             setName('');
+            setCurrentId(work.id);
             onMessage(
               existing
                 ? `「${trimmed}」を上書き保存しました。`
@@ -151,14 +169,17 @@ export function SavedWorks({
       ) : (
         <ul>
           {works.map((w) => (
-            <li key={w.id}>
+            <li
+              key={w.id}
+              className={w.id === currentId ? 'current' : undefined}
+            >
               <button
                 type="button"
                 className="saved-work-open"
                 title={`「${w.name}」を開く`}
                 onClick={() => {
                   onLoad(w.pattern, w.name);
-                  setName(w.name);
+                  setCurrentId(w.id);
                 }}
               >
                 <Thumbnail pattern={w.pattern} />

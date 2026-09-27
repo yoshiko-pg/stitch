@@ -670,6 +670,22 @@ h1 {
 .saved-work-delete:hover {
   background: #f3e3df;
 }
+.saved-works-overwrite {
+  width: 100%;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.saved-works-overwrite span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-works li.current .saved-work-open {
+  background: #e8eee2;
+}
 .saved-works-transfer {
   display: grid;
   gap: 6px;
