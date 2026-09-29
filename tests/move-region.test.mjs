@@ -86,6 +86,19 @@ test('stitches shifted past the edge are dropped', () => {
   );
 });
 
+test('copy leaves the source stitches in place', () => {
+  const p = {
+    width: 3,
+    height: 1,
+    cells: ['321', null, null],
+    name: 'copy',
+  };
+  assert.deepEqual(
+    moveRegion(p, { x: 0, y: 0, width: 1, height: 1 }, 2, 0, true).cells,
+    ['321', null, '321'],
+  );
+});
+
 test('zero offset and empty regions return the same pattern', () => {
   const p = {
     width: 2,

@@ -124,6 +124,9 @@ export default function Home() {
   const [lineBrush, setLineBrush] = useState('');
   const [brushMode, setBrushMode] = useState<'fill' | 'lines'>('fill');
   const [brushOpen, setBrushOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
+  // The paint tool in use before range selection, restored when selection is toggled off.
+  const paintBeforeSelect = useRef<string | null | undefined>(undefined);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<Region | null>(null);
   const selectDrag = useRef<
@@ -135,6 +138,7 @@ export default function Home() {
         region: Region;
         original: Pattern;
         offset: [number, number];
+        copy: boolean;
       }
     | null
   >(null);
@@ -476,7 +480,14 @@ export default function Home() {
       Math.max(0, Math.min(pattern.height - 1, Math.floor(point.y))),
     ];
   }
-  // With a region selected, picking a colour or the eraser fills it instead of switching tools.
+  // Picking a paint tool always ends range selection, even when the same colour is re-picked.
+  function choosePaint(next: string | null | undefined) {
+    setSelecting(false);
+    setSelection(null);
+    setPaint(next);
+    setView('pattern');
+  }
+  // Right-clicking a colour or the eraser fills the selected region instead.
   function fillSelection(color: string | null) {
     if (!selecting || !selection) return false;
     remember(pattern);
@@ -515,6 +526,7 @@ export default function Home() {
           region: selection,
           original: pattern,
           offset: [0, 0],
+          copy: e.shiftKey,
         }
       : { pointerId: e.pointerId, kind: 'draw', anchor: cell };
     if (!inside) setSelection({ x: cell[0], y: cell[1], width: 1, height: 1 });
@@ -550,9 +562,17 @@ export default function Home() {
         cell[1] - active.origin[1],
       ),
     );
-    if (dx === active.offset[0] && dy === active.offset[1]) return;
+    // Holding Shift at any point of the drag copies instead of moving.
+    const copy = e.shiftKey;
+    if (
+      dx === active.offset[0] &&
+      dy === active.offset[1] &&
+      copy === active.copy
+    )
+      return;
     active.offset = [dx, dy];
-    setDraft(moveRegion(active.original, active.region, dx, dy));
+    active.copy = copy;
+    setDraft(moveRegion(active.original, active.region, dx, dy, copy));
     setSelection({
       ...active.region,
       x: active.region.x + dx,
@@ -569,12 +589,21 @@ export default function Home() {
       // An interrupted drag reverts; only a completed pointerup commits the move.
       const next =
         e.type === 'pointerup'
-          ? moveRegion(active.original, active.region, ...active.offset)
+          ? moveRegion(
+              active.original,
+              active.region,
+              ...active.offset,
+              active.copy,
+            )
           : active.original;
       if (next !== active.original) {
         remember(active.original);
         setPattern(next);
-        setMessage('選択範囲を移動しました。「一つ戻す」で取り消せます。');
+        setMessage(
+          active.copy
+            ? '選択範囲をコピーしました。「一つ戻す」で取り消せます。'
+            : '選択範囲を移動しました。「一つ戻す」で取り消せます。',
+        );
       } else {
         setSelection(active.region);
       }
@@ -1125,11 +1154,7 @@ export default function Home() {
                       className="paint-color-options"
                       aria-label="塗る色"
                       value={paint || ''}
-                      onValueChange={(value) => {
-                        if (!fillSelection(String(value)))
-                          setPaint(String(value));
-                        setView('pattern');
-                      }}
+                      onValueChange={(value) => choosePaint(String(value))}
                     >
                       {palette.map((t, i) => (
                         <Tip label={`DMC ${t.id} · ${t.name}`} key={t.id}>
@@ -1137,6 +1162,9 @@ export default function Home() {
                             key={t.id}
                             className="paint-choice"
                             htmlFor={`paint-${t.id}`}
+                            onContextMenu={(e) => {
+                              if (fillSelection(t.id)) e.preventDefault();
+                            }}
                           >
                             <RadioGroupItem
                               id={`paint-${t.id}`}
@@ -1149,7 +1177,7 @@ export default function Home() {
                         </Tip>
                       ))}
                     </RadioGroup>
-                    <Popover>
+                    <Popover open={extraOpen} onOpenChange={setExtraOpen}>
                       <Tip label="ほかの糸色を追加">
                         <PopoverTrigger aria-label="ほかの糸色を追加">
                           <Plus size={17} />
@@ -1169,8 +1197,13 @@ export default function Home() {
                                 aria-label={`DMC ${t.id} ${t.name}で描く`}
                                 style={{ background: t.hex, color: ink(t.hex) }}
                                 onClick={() => {
-                                  if (!fillSelection(t.id)) setPaint(t.id);
-                                  setView('pattern');
+                                  setExtraOpen(false);
+                                  choosePaint(t.id);
+                                }}
+                                onContextMenu={(e) => {
+                                  if (!fillSelection(t.id)) return;
+                                  e.preventDefault();
+                                  setExtraOpen(false);
                                 }}
                               >
                                 {t.id}
@@ -1185,10 +1218,11 @@ export default function Home() {
                         className={paint === null ? 'active' : ''}
                         aria-pressed={paint === null}
                         aria-label="消しゴム"
-                        onClick={() => {
-                          if (fillSelection(null)) return;
-                          setPaint(paint === null ? undefined : null);
-                          setView('pattern');
+                        onClick={() =>
+                          choosePaint(paint === null ? undefined : null)
+                        }
+                        onContextMenu={(e) => {
+                          if (fillSelection(null)) e.preventDefault();
                         }}
                       >
                         <Eraser size={17} />
@@ -1312,7 +1346,7 @@ export default function Home() {
                         </div>
                       </PopoverContent>
                     </Popover>
-                    <Tip label="範囲選択 · 目数を測る・色を押して塗りつぶし・中をドラッグして移動">
+                    <Tip label="範囲選択 · 目数を測る・色を右クリックで塗りつぶし・中をドラッグで移動（Shift でコピー）">
                       <button
                         type="button"
                         className={selecting ? 'active' : ''}
@@ -1323,10 +1357,13 @@ export default function Home() {
                           setSelecting(next);
                           setSelection(null);
                           if (next) {
+                            paintBeforeSelect.current = paint;
                             setPaint(undefined);
                             setMessage(
-                              'ドラッグで範囲を選ぶと目数が出ます。色か消しゴムを押すと塗りつぶし、中をドラッグすると移動できます。',
+                              'ドラッグで範囲を選ぶと目数が出ます。色か消しゴムを右クリックすると塗りつぶし、中をドラッグすると移動、Shift を押しながらドラッグするとコピーできます。',
                             );
+                          } else {
+                            setPaint(paintBeforeSelect.current);
                           }
                           setView('pattern');
                         }}

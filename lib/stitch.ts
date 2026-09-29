@@ -419,12 +419,16 @@ export function trimPattern(p: Pattern): Pattern {
   };
 }
 export type Region = { x: number; y: number; width: number; height: number };
-/** Shift every stitch inside the region; vacated cells empty, covered cells are overwritten. */
+/**
+ * Shift every stitch inside the region; vacated cells empty, covered cells are overwritten.
+ * With `copy`, the source stitches stay where they were.
+ */
 export function moveRegion(
   p: Pattern,
   region: Region,
   dx: number,
   dy: number,
+  copy = false,
 ): Pattern {
   if (dx === 0 && dy === 0) return p;
   const cells = [...p.cells];
@@ -443,9 +447,11 @@ export function moveRegion(
       const color = p.cells[cell];
       const line = p.lines?.[cell] ?? null;
       if (color === null && line === null) continue;
-      cells[cell] = null;
-      if (styles) styles[cell] = null;
-      if (lines) lines[cell] = null;
+      if (!copy) {
+        cells[cell] = null;
+        if (styles) styles[cell] = null;
+        if (lines) lines[cell] = null;
+      }
       moved.push([x + dx, y + dy, color, cellStyle(p, cell), line]);
     }
   for (const [x, y, color, style, line] of moved) {
