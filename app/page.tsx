@@ -1397,7 +1397,11 @@ export default function Home() {
                         <Redo2 size={17} />
                       </button>
                     </Tip>
-                    <Popover>
+                    <Popover
+                      onOpenChange={(open) => {
+                        if (!open) setMergeFrom('');
+                      }}
+                    >
                       <Tip label="その他の操作">
                         <PopoverTrigger aria-label="その他の操作">
                           <Ellipsis size={17} />
@@ -1425,7 +1429,7 @@ export default function Home() {
                             </NativeSelectOption>
                             {palette.map((t, i) => (
                               <NativeSelectOption key={t.id} value={t.id}>
-                                {symbols[i]} · DMC {t.id} ·{' '}
+                                {symbols[i]} · DMC {t.id} · {t.name} ·{' '}
                                 {pattern.cells.filter((c) => c === t.id).length}
                                 目
                               </NativeSelectOption>
