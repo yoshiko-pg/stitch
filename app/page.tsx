@@ -74,6 +74,7 @@ import {
   type ConversionMode,
 } from '@/lib/image-processing';
 const symbols = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
+const EMPTY_MERGE_TARGET = '__empty__';
 export default function Home() {
   const [pattern, setPattern] = useState<Pattern>(sample);
   const [width, setWidth] = useState(48);
@@ -166,14 +167,33 @@ export default function Home() {
     [pattern],
   );
   const mergeSource = palette.find((t) => t.id === mergeFrom);
+  const mergeToEmpty = mergeTo === EMPTY_MERGE_TARGET;
   const mergeTarget = palette.find((t) => t.id === mergeTo);
   const mergeCount = mergeSource
     ? pattern.cells.filter((c) => c === mergeSource.id).length
     : 0;
   const canMerge =
-    !!mergeSource && !!mergeTarget && mergeSource.id !== mergeTarget.id;
+    !!mergeSource &&
+    (mergeToEmpty || (!!mergeTarget && mergeSource.id !== mergeTarget.id));
   function mergeColors() {
-    if (!canMerge || !mergeSource || !mergeTarget) return;
+    if (!canMerge || !mergeSource) return;
+    if (!mergeTarget) {
+      update({
+        ...pattern,
+        cells: pattern.cells.map((c) => (c === mergeSource.id ? null : c)),
+        ...(pattern.styles && {
+          styles: pattern.styles.map((style, i) =>
+            pattern.cells[i] === mergeSource.id ? null : style,
+          ),
+        }),
+      });
+      setMergeFrom('');
+      setView('pattern');
+      setMessage(
+        `DMC ${mergeSource.id} の ${mergeCount}目を色なしにしました。「一つ戻す」で取り消せます。`,
+      );
+      return;
+    }
     update({
       ...pattern,
       cells: pattern.cells.map((c) =>
@@ -1438,12 +1458,19 @@ export default function Home() {
                           <label htmlFor="merge-to">残す色</label>
                           <NativeSelect
                             id="merge-to"
-                            value={mergeTarget?.id || ''}
+                            value={
+                              mergeToEmpty
+                                ? EMPTY_MERGE_TARGET
+                                : mergeTarget?.id || ''
+                            }
                             disabled={palette.length < 2}
                             onChange={(e) => setMergeTo(e.target.value)}
                           >
                             <NativeSelectOption value="">
                               色を選ぶ
+                            </NativeSelectOption>
+                            <NativeSelectOption value={EMPTY_MERGE_TARGET}>
+                              色なし（消す）
                             </NativeSelectOption>
                             {palette.map((t, i) => (
                               <NativeSelectOption
@@ -1466,14 +1493,18 @@ export default function Home() {
                                 {symbols[palette.indexOf(mergeSource!)]}
                               </span>
                               <ArrowRight size={16} />
-                              <span
-                                style={{
-                                  background: mergeTarget!.hex,
-                                  color: ink(mergeTarget!.hex),
-                                }}
-                              >
-                                {symbols[palette.indexOf(mergeTarget!)]}
-                              </span>
+                              {mergeTarget ? (
+                                <span
+                                  style={{
+                                    background: mergeTarget.hex,
+                                    color: ink(mergeTarget.hex),
+                                  }}
+                                >
+                                  {symbols[palette.indexOf(mergeTarget)]}
+                                </span>
+                              ) : (
+                                <span className="empty" aria-label="色なし" />
+                              )}
                               <strong>{mergeCount}目</strong>
                             </div>
                           )}
@@ -1483,7 +1514,9 @@ export default function Home() {
                             onClick={mergeColors}
                           >
                             {canMerge
-                              ? `${mergeCount}目をまとめる`
+                              ? mergeTarget
+                                ? `${mergeCount}目をまとめる`
+                                : `${mergeCount}目を色なしにする`
                               : '色を選んでまとめる'}
                           </button>
                         </section>

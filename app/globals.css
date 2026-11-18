@@ -1567,6 +1567,17 @@ summary,
   border-radius: 4px;
   border: 1px solid #0002;
 }
+.merge-preview > span.empty {
+  background:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      #c0392b calc(50% - 1px),
+      #c0392b calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    white;
+}
 .merge-preview strong {
   margin-left: auto;
   font-size: 14px;
