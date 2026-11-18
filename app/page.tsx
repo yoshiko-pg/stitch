@@ -1055,7 +1055,7 @@ export default function Home() {
                 </label>
                 <Slider
                   aria-labelledby="size-label"
-                  min={12}
+                  min={1}
                   max={96}
                   step={1}
                   value={[width]}
