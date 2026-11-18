@@ -1057,7 +1057,7 @@ export default function Home() {
                   aria-labelledby="size-label"
                   min={12}
                   max={96}
-                  step={4}
+                  step={1}
                   value={[width]}
                   onValueChange={(v) => setWidth(Array.isArray(v) ? v[0] : v)}
                 />
